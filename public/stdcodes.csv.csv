@@ -1,0 +1,121 @@
+from urllib2 import urlopen as ureq 
+import re
+from bs4 import BeautifulSoup as soup
+
+UNIV = set()
+
+def scraping(url, state, count):
+	global UNIV
+	my_url=url+str(count)
+	#print my_url
+	myclient=ureq(my_url)
+	page_html=myclient.read()	
+	myclient.close()
+
+	page_soup=soup(page_html,"lxml")
+	emplist=None
+	final_i=[]
+
+	findtd=page_soup.find_all("td",{"valign":"top"})  #finds three valign top
+	#findtable=page_soup.find_all("table")  
+	data = []
+	#for con in findtd:
+		#a=con.find_all("table")
+		#emplist.append(con)
+	if findtd[1]:
+		for tablebody in findtd[1]:
+			g=findtd[1].find_all("tr")
+			#h=g.get('href')
+		if len(g)>1:
+			emplist = []
+			for item in g[1:]:
+				#orig_name= item.find('td') #getting name with tag
+				
+				#print orig_name.
+				m= item.find_all(text=True)  #getting a tag
+				#print type(m[0])
+				orig_name=m[0]
+				orig_std=m[1]
+				#final_i= item.text
+		  		#match = re.match(r"([a-z]+)([0-9]+)", final_i, re.I)
+				
+				'''if match:
+																	#print type(match.groups())
+																	naam = match.group(1).encode('utf-8')
+																	unicodes= match.group(2).encode('utf-8')
+																	if naam not in UNIV:
+																		emplist.append((naam, unicodes, state))
+																	UNIV.add(naam)'''
+	
+				if orig_name not in UNIV:
+					emplist.append((orig_name,orig_std,state))
+				UNIV.add(orig_name)
+	return emplist
+
+def perFile(elem):
+	emplist = []
+	for i in range(2100):
+		temp = scraping(elem[0], elem[1], i)
+		if not temp:
+			break
+		emplist.extend(temp)
+	return emplist
+
+#'http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=West+Bengal&location=&pg='+str(count)
+
+filename="all_stdcodes.csv"
+f=open(filename,"ab") 
+headers="CITY,STD,STATE\n" 
+f.write(headers)	
+
+base = [('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Andaman+%26+Nicobar+Islands&location=&pg=','Andaman & Nicobar Islands'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Andhra+Pradesh&location=&pg=','Andhra Pradesh'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Arunachal+Pradesh&location=&pg=','Arunachal Pradesh'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Assam&location=&pg=','Assam'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Bihar&location=&pg=','Bihar'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Chhattisgarh&location=&pg=','Chhattisgarh'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Delhi&location=&pg=','Delhi'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Goa&location=&pg=','Goa'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Gujarat&location=&pg=','Gujarat'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Harayana&location=&pg=','Harayana'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Himachal+Pradesh&location=&pg=','Himachal Pradesh'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Jammu+%26+Kashmir&location=&pg=','Jammu & Kashmir'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Jharkhand&location=&pg=','Jharkhand'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Karnataka&location=&pg=','Karnataka'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Kerala&location=&pg=','Kerala'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Madhya+Pradesh&location=&pg=','Madhya Pradesh'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Maharashtra&location=&pg=','Maharashtra'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Manipur&location=&pg=','Manipur'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Mizoram&location=&pg=','Mizoram'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=North+East&location=&pg=','North East'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Orissa&location=&pg=','Orissa'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Punjab&location=&pg=','Punjab'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Rajasthan&location=&pg=','Rajasthan'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Sikkim&location=&pg=','Sikkim'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Tamil+Nadu&location=&pg=','Tamil Nadu'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Uttar+Pradesh&location=&pg=','Uttar Pradesh'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Uttar+Pradesh+East&location=&pg=','Uttar Pradesh East'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Uttar+Pradesh+West&location=&pg=', 'Uttar Pradesh West'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=Uttaranchal&location=&pg=','Uttaranchal'),
+		('http://stdcodes.bharatiyamobile.com/Indian-STD-Codes-Statewise.php?state=West+Bengal&location=&pg=', 'West Bengal')
+		]
+DATA = []	
+for b in base:
+	DATA.extend(perFile(b))
+
+for i in DATA:
+	print "Writing file"
+	#print i
+	#f.write(i)
+	f.write(i[0]+","+i[1]+","+i[2]+"\n")
+	#f.write(i+"\n")
+
+
+"""for i in range(2100):
+	j=scraping(i)
+	print j
+	if j:
+		map(lambda r: f.write(r[0]+","+r[1]+","+r[2]+"\n"), j)
+	else:
+		break
+"""

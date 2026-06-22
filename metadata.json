@@ -1,0 +1,6 @@
+{
+  "name": "Pincode Club",
+  "description": "SEO-friendly PIN Code and Bank IFSC Directory.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
