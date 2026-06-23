@@ -32,7 +32,6 @@ export default function PincodePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 50;
 
-  // 1. Debounce Typing for Search
   useEffect(() => {
     if (inputValue === '') {
       setSearchQuery('');
@@ -46,7 +45,6 @@ export default function PincodePage() {
     return () => clearTimeout(timer);
   }, [inputValue]);
 
-  // 2. Handle URL parameters
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const query = params.get('search');
@@ -56,7 +54,6 @@ export default function PincodePage() {
     }
   }, []);
 
-  // 3. Fetch Search Suggestions (Dropdown)
   useEffect(() => {
     if (searchQuery.length < 2) {
       setSuggestions([]);
@@ -75,7 +72,6 @@ export default function PincodePage() {
     fetchSuggestions();
   }, [searchQuery]);
 
-  // 4. Fetch District List when a State is clicked
   useEffect(() => {
     if (selectedState && !selectedDistrict && !searchQuery) {
       const fetchDistricts = async () => {
@@ -83,8 +79,8 @@ export default function PincodePage() {
         const { data } = await supabase.from('pincodes').select('districtname').eq('statename', selectedState);
         if (data) {
           const counts = new Map();
-          data.forEach(row => {
-            const d = row.districtname || row.Districtname || 'Unknown';
+          data.forEach((row: any) => {
+            const d = row.districtname || 'Unknown';
             counts.set(d, (counts.get(d) || 0) + 1);
           });
           const dists = Array.from(counts.entries()).map(([name, count]) => ({ name, count })).sort((a,b) => a.name.localeCompare(b.name));
@@ -96,7 +92,6 @@ export default function PincodePage() {
     }
   }, [selectedState, selectedDistrict, searchQuery]);
 
-  // 5. Fetch Main Results (Search query OR District selected)
   useEffect(() => {
     const fetchMainData = async () => {
       if (!searchQuery && !selectedDistrict) {
@@ -252,7 +247,7 @@ export default function PincodePage() {
                       <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/5 rounded-bl-[100px] -z-10 group-hover:bg-orange-500/10 transition-colors"></div>
                       <div className="flex justify-between items-start gap-4 mb-4 pb-4 border-b border-slate-700/50">
                         <div>
-                          <h3 className="text-xl font-bold text-orange-400 mb-1 group-hover:text-orange-300" translate="no">{row.officename || row.OfficeName}</h3>
+                          <h3 className="text-xl font-bold text-orange-400 mb-1 group-hover:text-orange-300" translate="no">{row.officename}</h3>
                           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg> Post Office
                           </p>
@@ -260,11 +255,11 @@ export default function PincodePage() {
                         <span className="bg-orange-600 text-white px-4 py-2 rounded-xl text-xl font-black shadow-lg shadow-orange-600/20 shrink-0 tracking-widest">{row.pincode}</span>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-4 gap-x-3 pt-2 text-sm flex-grow">
-                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">State</span><span className="text-white font-medium truncate block" translate="no">{row.statename || row.StateName}</span></div>
-                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">District</span><span className="text-white font-medium truncate block" translate="no">{row.districtname || row.District}</span></div>
-                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">Region</span><span className="text-white font-medium truncate block" translate="no">{row.regionname || row.Region}</span></div>
-                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">Circle</span><span className="text-white font-medium truncate block" translate="no">{row.circlename || row.Circle}</span></div>
-                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">Division</span><span className="text-white font-medium truncate block" translate="no">{row.divisionname || row.Division}</span></div>
+                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">State</span><span className="text-white font-medium truncate block" translate="no">{row.statename}</span></div>
+                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">District</span><span className="text-white font-medium truncate block" translate="no">{row.districtname}</span></div>
+                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">Region</span><span className="text-white font-medium truncate block" translate="no">{row.regionname}</span></div>
+                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">Circle</span><span className="text-white font-medium truncate block" translate="no">{row.circlename}</span></div>
+                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">Division</span><span className="text-white font-medium truncate block" translate="no">{row.divisionname}</span></div>
                       </div>
                     </Link>
                   )
