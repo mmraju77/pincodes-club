@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 
-// Ultra-fast static list to avoid 1.5 Lakh row scanning on initial load
 const INDIAN_STATES = [
   "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar",
   "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli", "Daman and Diu", "Delhi", "Goa",
@@ -19,40 +18,22 @@ export default function PincodePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<any[]>([]);
-  
   const [isLoading, setIsLoading] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
   const [districtSummary, setDistrictSummary] = useState<any[]>([]);
-  
   const [resultsData, setResultsData] = useState<any[]>([]);
   const [totalResults, setTotalResults] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 50;
 
   useEffect(() => {
-    if (inputValue === '') {
-      setSearchQuery('');
-      setShowSuggestions(false);
-      return;
-    }
     const timer = setTimeout(() => {
       setSearchQuery(inputValue);
-      setShowSuggestions(true);
+      setShowSuggestions(inputValue.length >= 2);
     }, 300);
     return () => clearTimeout(timer);
   }, [inputValue]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const query = params.get('search');
-    if (query) {
-      setInputValue(query);
-      setSearchQuery(query);
-    }
-  }, []);
 
   useEffect(() => {
     if (searchQuery.length < 2) {
@@ -60,11 +41,11 @@ export default function PincodePage() {
       return;
     }
     const fetchSuggestions = async () => {
-      let q = supabase.from('pincodes').select('officename, pincode, districtname, statename').limit(6);
+      let q = supabase.from('pincodes').select('officename, pincode, district, statename').limit(6);
       if (/^\d+$/.test(searchQuery.trim())) {
-        q = q.eq('pincode', searchQuery.trim());
+        q = q.eq('pincode', parseInt(searchQuery.trim()));
       } else {
-        q = q.or(`officename.ilike.%${searchQuery.trim()}%,divisionname.ilike.%${searchQuery.trim()}%`);
+        q = q.or(`officename.ilike.%${searchQuery.trim()}%`);
       }
       const { data } = await q;
       if (data) setSuggestions(data);
@@ -76,11 +57,11 @@ export default function PincodePage() {
     if (selectedState && !selectedDistrict && !searchQuery) {
       const fetchDistricts = async () => {
         setIsLoading(true);
-        const { data } = await supabase.from('pincodes').select('districtname').eq('statename', selectedState);
+        const { data } = await supabase.from('pincodes').select('district').eq('statename', selectedState);
         if (data) {
           const counts = new Map();
           data.forEach((row: any) => {
-            const d = row.districtname || 'Unknown';
+            const d = row.district || 'Unknown';
             counts.set(d, (counts.get(d) || 0) + 1);
           });
           const dists = Array.from(counts.entries()).map(([name, count]) => ({ name, count })).sort((a,b) => a.name.localeCompare(b.name));
@@ -96,188 +77,72 @@ export default function PincodePage() {
     const fetchMainData = async () => {
       if (!searchQuery && !selectedDistrict) {
         setResultsData([]);
-        setTotalResults(0);
         return;
       }
-
       setIsLoading(true);
-      const start = (currentPage - 1) * ITEMS_PER_PAGE;
-      const end = start + ITEMS_PER_PAGE - 1;
-
       let q = supabase.from('pincodes').select('*', { count: 'exact' });
-
       if (searchQuery) {
         if (/^\d+$/.test(searchQuery.trim())) {
-          q = q.eq('pincode', searchQuery.trim());
+          q = q.eq('pincode', parseInt(searchQuery.trim()));
         } else {
-          q = q.or(`officename.ilike.%${searchQuery.trim()}%,divisionname.ilike.%${searchQuery.trim()}%`);
+          q = q.or(`officename.ilike.%${searchQuery.trim()}%`);
         }
       } else if (selectedDistrict && selectedState) {
-        q = q.eq('statename', selectedState).eq('districtname', selectedDistrict);
+        q = q.eq('statename', selectedState).eq('district', selectedDistrict);
       }
-
-      const { data, count } = await q.range(start, end);
-
-      if (data) {
-        setResultsData(data);
-        setTotalResults(count || 0);
-      }
+      const { data, count } = await q.range((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE - 1);
+      if (data) { setResultsData(data); setTotalResults(count || 0); }
       setIsLoading(false);
     };
-
     fetchMainData();
   }, [searchQuery, selectedDistrict, selectedState, currentPage]);
 
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, selectedState, selectedDistrict]);
-  useEffect(() => { if (inputValue.length > 0) { setSelectedState(null); setSelectedDistrict(null); } }, [inputValue]);
-
-  const handleVoiceSearch = () => {
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (!SpeechRecognition) return alert("Your browser doesn't support Voice Search.");
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false; recognition.interimResults = false; recognition.maxAlternatives = 1; 
-      recognition.lang = 'en-IN';
-      recognition.onstart = () => setIsListening(true);
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript.replace(/[.,!?]/g, '').trim(); 
-        setInputValue(transcript); setSearchQuery(transcript); setIsListening(false);
-      };
-      recognition.onerror = () => setIsListening(false);
-      recognition.onend = () => setIsListening(false);
-      recognition.start();
-    }
-  };
-
-  const showStateList = !searchQuery && !selectedState;
-  const showDistrictList = !searchQuery && selectedState && !selectedDistrict;
-  const showResultsList = searchQuery || (selectedState && selectedDistrict);
-  const totalPages = Math.ceil(totalResults / ITEMS_PER_PAGE);
-
   return (
-    <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 space-y-8">
-      <nav className="flex text-sm text-slate-400 mb-8 items-center gap-2">
-        <Link href="/" className="hover:text-orange-500 transition-colors" translate="no">HOME</Link>
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
-        <span className="text-white font-medium" translate="no">PIN CODES</span>
-      </nav>
-
-      <div className="bg-slate-800/40 backdrop-blur-md p-8 md:p-10 rounded-3xl border border-slate-700/50 shadow-2xl">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div>
-            <div className="inline-block px-3 py-1 mb-4 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 text-sm font-semibold tracking-wide uppercase">Postal Directory</div>
-            <h1 className="text-4xl font-extrabold text-white tracking-tight mb-2">India PIN Codes Hub</h1>
-            <p className="text-slate-300 text-base font-light max-w-xl">Browse through states and districts, or search specific details for any post office in India.</p>
-          </div>
-          
-          <div className="w-full md:w-96 relative flex items-center">
-            <svg className="w-5 h-5 absolute left-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-            <input 
-              type="text" 
-              placeholder="Search Pincode, Division, Office..." 
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)} 
-              onFocus={() => setShowSuggestions(true)}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-              className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl py-3 pl-10 pr-12 focus:outline-none focus:border-orange-500 transition-colors shadow-inner font-medium"
-            />
-            <button onClick={handleVoiceSearch} className={`absolute right-2 p-2 rounded-lg transition-all ${isListening ? 'bg-orange-500 animate-pulse text-white' : 'text-slate-400 hover:text-orange-400 hover:bg-slate-800'}`} title="Voice Search">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
-            </button>
-            {showSuggestions && suggestions.length > 0 && (
-              <ul className="absolute top-14 left-0 z-50 w-full bg-slate-800 border border-slate-600 rounded-xl shadow-2xl max-h-64 overflow-y-auto">
-                {suggestions.map((row: any, idx: number) => (
-                  <li key={idx} onClick={() => { setInputValue(row.officename); setSearchQuery(row.officename); setShowSuggestions(false); }} className="px-4 py-3 hover:bg-orange-500 cursor-pointer border-b border-slate-700 last:border-0 transition-colors group flex justify-between items-center">
-                    <div className="flex flex-col">
-                      <span className="font-bold text-slate-200 group-hover:text-white truncate max-w-[200px]" translate="no">{row.officename}</span>
-                      <span className="text-xs text-slate-400 group-hover:text-orange-100 truncate max-w-[200px]" translate="no">{row.districtname}, {row.statename}</span>
-                    </div>
-                    <span className="text-xs font-black bg-slate-900 text-orange-400 px-2 py-1 rounded group-hover:bg-white group-hover:text-orange-600 shrink-0">{row.pincode}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
+    <div className="max-w-7xl mx-auto py-12 px-4 text-white">
+      <div className="bg-slate-800/40 p-8 rounded-3xl border border-slate-700/50">
+        <h1 className="text-4xl font-extrabold mb-4">India PIN Codes Hub</h1>
+        <input 
+          type="text" 
+          placeholder="Search..." 
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)} 
+          className="w-full bg-slate-900 border border-slate-700 rounded-xl py-3 px-4"
+        />
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        {selectedState && <button onClick={() => { setSelectedState(null); setSelectedDistrict(null); setInputValue(''); setSearchQuery(''); }} className="flex items-center gap-2 text-orange-400 hover:text-white transition-colors bg-orange-500/10 px-4 py-2 rounded-lg border border-orange-500/20 text-sm font-medium">← All States</button>}
-        {selectedDistrict && <button onClick={() => {setSelectedDistrict(null); setInputValue(''); setSearchQuery('');}} className="flex items-center gap-2 text-orange-400 hover:text-white transition-colors bg-orange-500/10 px-4 py-2 rounded-lg border border-orange-500/20 text-sm font-medium">← All Districts in <span translate="no">{selectedState}</span></button>}
-      </div>
+      {isLoading && <p className="text-center mt-10">Loading...</p>}
 
-      {isLoading ? (
-        <div className="py-24 text-center">
-          <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400 animate-pulse text-lg">Fetching live data...</p>
+      {!isLoading && showStateList && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mt-10">
+          {INDIAN_STATES.map((state) => (
+            <div key={state} onClick={() => setSelectedState(state)} className="bg-slate-900 p-6 rounded-2xl cursor-pointer hover:border-orange-500 border border-slate-800">
+              <h3 className="font-bold">{state}</h3>
+            </div>
+          ))}
         </div>
-      ) : (
-        <>
-          {showStateList && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {INDIAN_STATES.map((stateName, index) => (
-                <div key={index} onClick={() => setSelectedState(stateName)} className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 flex flex-col items-center text-center shadow-sm group hover:border-orange-500/50 hover:bg-slate-800/80 transition-all cursor-pointer relative overflow-hidden">
-                  <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">🗺️</div>
-                  <h3 className="text-lg font-bold text-white group-hover:text-orange-400 transition-colors mb-2" translate="no">{stateName}</h3>
-                  <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-3 py-1 rounded-full text-xs font-bold tracking-wide mt-auto">Explore Districts ➔</span>
-                </div>
-              ))}
-            </div>
-          )}
+      )}
 
-          {showDistrictList && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {districtSummary.map((dist: any, index: number) => (
-                <div key={index} onClick={() => setSelectedDistrict(dist.name)} className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 flex flex-col items-center text-center shadow-sm group hover:border-orange-500/50 hover:bg-slate-800/80 transition-all cursor-pointer relative overflow-hidden">
-                  <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">📍</div>
-                  <h3 className="text-lg font-bold text-white group-hover:text-orange-400 transition-colors mb-2" translate="no">{dist.name}</h3>
-                  <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-3 py-1 rounded-full text-xs font-bold tracking-wide mt-auto">{dist.count} Locations</span>
-                </div>
-              ))}
+      {selectedState && !selectedDistrict && !searchQuery && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mt-10">
+          {districtSummary.map((dist) => (
+            <div key={dist.name} onClick={() => setSelectedDistrict(dist.name)} className="bg-slate-900 p-6 rounded-2xl cursor-pointer border border-slate-800">
+              <h3 className="font-bold">{dist.name}</h3>
             </div>
-          )}
+          ))}
+        </div>
+      )}
 
-          {showResultsList && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {resultsData.length > 0 ? (
-                resultsData.map((row: any, index: number) => {
-                  const seoUrl = `/pin-codes/${row.pincode}?office=${encodeURIComponent(row.officename || '')}&district=${encodeURIComponent(row.districtname || '')}&state=${encodeURIComponent(row.statename || '')}&delivery=${encodeURIComponent(row.deliverystatus || '')}`;
-                  return (
-                    <Link href={seoUrl} prefetch={false} key={index} className="bg-slate-900/80 p-6 rounded-2xl border border-slate-700 hover:border-orange-500/50 transition-all flex flex-col relative shadow-xl block cursor-pointer group hover:scale-[1.01]">
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/5 rounded-bl-[100px] -z-10 group-hover:bg-orange-500/10 transition-colors"></div>
-                      <div className="flex justify-between items-start gap-4 mb-4 pb-4 border-b border-slate-700/50">
-                        <div>
-                          <h3 className="text-xl font-bold text-orange-400 mb-1 group-hover:text-orange-300" translate="no">{row.officename}</h3>
-                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg> Post Office
-                          </p>
-                        </div>
-                        <span className="bg-orange-600 text-white px-4 py-2 rounded-xl text-xl font-black shadow-lg shadow-orange-600/20 shrink-0 tracking-widest">{row.pincode}</span>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-4 gap-x-3 pt-2 text-sm flex-grow">
-                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">State</span><span className="text-white font-medium truncate block" translate="no">{row.statename}</span></div>
-                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">District</span><span className="text-white font-medium truncate block" translate="no">{row.districtname}</span></div>
-                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">Region</span><span className="text-white font-medium truncate block" translate="no">{row.regionname}</span></div>
-                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">Circle</span><span className="text-white font-medium truncate block" translate="no">{row.circlename}</span></div>
-                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">Division</span><span className="text-white font-medium truncate block" translate="no">{row.divisionname}</span></div>
-                      </div>
-                    </Link>
-                  )
-                })
-              ) : (
-                <div className="col-span-full py-12 text-center"><p className="text-slate-400 text-lg">No PIN records found matching "{searchQuery}"</p></div>
-              )}
+      {resultsData.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10">
+          {resultsData.map((row, i) => (
+            <div key={i} className="bg-slate-900 p-6 rounded-2xl border border-slate-700">
+              <h3 className="text-xl font-bold text-orange-400">{row.officename}</h3>
+              <p>Pincode: {row.pincode}</p>
+              <p>District: {row.district}</p>
+              <p>State: {row.statename}</p>
             </div>
-          )}
-
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-4 mt-12 mb-8 p-4 bg-slate-800/30 rounded-2xl border border-slate-700/50">
-              <button onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({top: 300, behavior: 'smooth'}); }} disabled={currentPage === 1} className="px-6 py-2.5 rounded-xl bg-slate-800 text-white font-semibold disabled:opacity-40 hover:bg-orange-500 transition-all border border-slate-700">Previous</button>
-              <span className="text-slate-400 font-medium px-4">Page <span className="text-white text-lg font-bold mx-1">{currentPage}</span> of <span className="text-white mx-1">{totalPages}</span></span>
-              <button onClick={() => { setCurrentPage(p => Math.min(totalPages, p + 1)); window.scrollTo({top: 300, behavior: 'smooth'}); }} disabled={currentPage === totalPages} className="px-6 py-2.5 rounded-xl bg-slate-800 text-white font-semibold disabled:opacity-40 hover:bg-orange-500 transition-all border border-slate-700">Next</button>
-            </div>
-          )}
-        </>
+          ))}
+        </div>
       )}
     </div>
   );
