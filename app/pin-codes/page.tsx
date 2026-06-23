@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useLanguage } from '@/src/context/LanguageContext';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 
@@ -16,8 +15,6 @@ const INDIAN_STATES = [
 ];
 
 export default function PincodePage() {
-  const { t, language } = useLanguage();
-  
   const [inputValue, setInputValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -148,7 +145,7 @@ export default function PincodePage() {
       recognition.lang = 'en-IN';
       recognition.onstart = () => setIsListening(true);
       recognition.onresult = (event: any) => {
-        let transcript = event.results[0][0].transcript.replace(/[.,!?]/g, '').trim(); 
+        const transcript = event.results[0][0].transcript.replace(/[.,!?]/g, '').trim(); 
         setInputValue(transcript); setSearchQuery(transcript); setIsListening(false);
       };
       recognition.onerror = () => setIsListening(false);
