@@ -57,7 +57,7 @@ export default function PincodePage() {
       if (/^\d+$/.test(searchQuery.trim())) {
         q = q.eq('pincode', parseInt(searchQuery.trim()));
       } else {
-        q = q.or(`officename.ilike.%${searchQuery.trim()}%,divisionname.ilike.%${searchQuery.trim()}%`);
+        q = q.or(`officename.ilike.%${searchQuery.trim()}%,district.ilike.%${searchQuery.trim()}%`);
       }
       const { data } = await q;
       if (data) setSuggestions(data);
@@ -69,7 +69,8 @@ export default function PincodePage() {
     if (selectedState && !selectedDistrict && !searchQuery) {
       const fetchDistricts = async () => {
         setIsLoading(true);
-        const { data } = await supabase.from('pincodes').select('district').eq('statename', selectedState);
+        // ఇక్కడ మనం .ilike వాడాము, కాబట్టి క్యాపిటల్ లెటర్స్ ఉన్నా వర్క్ అవుతుంది!
+        const { data } = await supabase.from('pincodes').select('district').ilike('statename', selectedState);
         if (data) {
           const counts = new Map();
           data.forEach(row => {
@@ -102,10 +103,11 @@ export default function PincodePage() {
         if (/^\d+$/.test(searchQuery.trim())) {
           q = q.eq('pincode', parseInt(searchQuery.trim()));
         } else {
-          q = q.or(`officename.ilike.%${searchQuery.trim()}%,divisionname.ilike.%${searchQuery.trim()}%`);
+          q = q.or(`officename.ilike.%${searchQuery.trim()}%,district.ilike.%${searchQuery.trim()}%`);
         }
       } else if (selectedDistrict && selectedState) {
-        q = q.eq('statename', selectedState).eq('district', selectedDistrict);
+        // ఇక్కడ కూడా .ilike వాడాము!
+        q = q.ilike('statename', selectedState).ilike('district', selectedDistrict);
       }
 
       const { data, count } = await q.range(start, end);
