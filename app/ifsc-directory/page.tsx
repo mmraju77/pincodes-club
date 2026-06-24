@@ -32,11 +32,11 @@ export default function IfscDirectoryPage() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearchQuery(inputValue);
-    }, 300);
+    }, 400); 
     return () => clearTimeout(timer);
   }, [inputValue]);
 
-  // Fetch Districts using accurate 'STATE' column
+  // Fetch Districts 
   useEffect(() => {
     if (selectedState && !selectedDistrict && !searchQuery) {
       const fetchDistricts = async () => {
@@ -58,7 +58,7 @@ export default function IfscDirectoryPage() {
     }
   }, [selectedState, selectedDistrict, searchQuery]);
 
-  // Fetch Main Results
+  // Fetch Main Results (Smart Multi-word Search)
   useEffect(() => {
     const fetchMainData = async () => {
       if (!searchQuery && !selectedDistrict) {
@@ -71,10 +71,35 @@ export default function IfscDirectoryPage() {
       const end = start + ITEMS_PER_PAGE - 1;
 
       let q = supabase.from('ifsc_codes').select('*', { count: 'exact' });
-      const qText = searchQuery.trim();
+      let qText = searchQuery.trim().toLowerCase();
 
-      if (searchQuery) {
-        q = q.or(`IFSC.ilike.%${qText}%,BANK.ilike.%${qText}%,BRANCH.ilike.%${qText}%,DISTRICT.ilike.%${qText}%,CITY.ilike.%${qText}%`);
+      // Dictionary for bank abbreviations
+      const abbreviations: {[key: string]: string} = {
+        'sbi': 'state bank',
+        'pnb': 'punjab national',
+        'boi': 'bank of india',
+        'bob': 'bank of baroda',
+        'cbi': 'central bank',
+        'iob': 'indian overseas',
+        'bom': 'bank of maharashtra',
+        'ubi': 'union bank',
+        'hfc': 'hdfc' 
+      };
+
+      // Replace abbreviations with full names
+      Object.keys(abbreviations).forEach(abbr => {
+        const regex = new RegExp(`\\b${abbr}\\b`, 'g');
+        qText = qText.replace(regex, abbreviations[abbr]);
+      });
+
+      if (qText) {
+        // Split search string into array of words
+        const words = qText.split(/\s+/).filter(w => w.length > 0);
+        
+        // Each word must match at least one column
+        words.forEach(word => {
+           q = q.or(`IFSC.ilike.%${word}%,BANK.ilike.%${word}%,BRANCH.ilike.%${word}%,CENTRE.ilike.%${word}%,DISTRICT.ilike.%${word}%,CITY.ilike.%${word}%,STATE.ilike.%${word}%,ADDRESS.ilike.%${word}%`);
+        });
       } else if (selectedDistrict && selectedState) {
         q = q.ilike('STATE', `%${selectedState}%`).ilike('DISTRICT', `%${selectedDistrict}%`);
       }
@@ -133,7 +158,7 @@ export default function IfscDirectoryPage() {
             <svg className="w-5 h-5 absolute left-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             <input 
               type="text" 
-              placeholder="Search IFSC, Bank Name, Branch..." 
+              placeholder="Search IFSC, Bank Name, Branch, City..." 
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)} 
               className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl py-3 pl-10 pr-12 focus:outline-none focus:border-blue-500 transition-colors shadow-inner font-medium"
@@ -185,7 +210,6 @@ export default function IfscDirectoryPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {resultsData.length > 0 ? (
                 resultsData.map((row: any, index: number) => {
-                  // Mapped to exact uppercase column names from database
                   const bankName = row.BANK || 'N/A';
                   const ifscCode = row.IFSC || 'N/A';
                   const branchName = row.BRANCH || 'N/A';
