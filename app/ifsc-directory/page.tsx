@@ -4,13 +4,14 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 
-const INDIAN_STATES = [
-  "ANDAMAN AND NICOBAR ISLANDS", "ANDHRA PRADESH", "ARUNACHAL PRADESH", "ASSAM", "BIHAR",
-  "CHANDIGARH", "CHHATTISGARH", "DADRA AND NAGAR HAVELI", "DAMAN AND DIU", "DELHI", "GOA",
-  "GUJARAT", "HARYANA", "HIMACHAL PRADESH", "JAMMU AND KASHMIR", "JHARKHAND", "KARNATAKA",
-  "KERALA", "LADAKH", "LAKSHADWEEP", "MADHYA PRADESH", "MAHARASHTRA", "MANIPUR", "MEGHALAYA",
-  "MIZORAM", "NAGALAND", "ODISHA", "PUDUCHERRY", "PUNJAB", "RAJASTHAN", "SIKKIM", "TAMIL NADU",
-  "TELANGANA", "TRIPURA", "UTTAR PRADESH", "UTTARAKHAND", "WEST BENGAL"
+// Popular banks list mapped to standard uppercase DB formats
+const POPULAR_BANKS = [
+  "STATE BANK OF INDIA", "HDFC BANK", "ICICI BANK LIMITED", "PUNJAB NATIONAL BANK",
+  "BANK OF BARODA", "AXIS BANK", "CANARA BANK", "UNION BANK OF INDIA",
+  "BANK OF INDIA", "INDIAN BANK", "CENTRAL BANK OF INDIA", "INDIAN OVERSEAS BANK",
+  "KOTAK MAHINDRA BANK LIMITED", "UCO BANK", "BANK OF MAHARASHTRA", "INDUSIND BANK",
+  "PUNJAB AND SIND BANK", "YES BANK", "IDFC FIRST BANK LIMITED", "BANDHAN BANK LIMITED",
+  "FEDERAL BANK", "SOUTH INDIAN BANK", "KARNATAKA BANK LIMITED", "KARUR VYSYA BANK"
 ];
 
 export default function IfscDirectoryPage() {
@@ -20,8 +21,11 @@ export default function IfscDirectoryPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   
+  const [selectedBank, setSelectedBank] = useState<string | null>(null);
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
+  
+  const [stateSummary, setStateSummary] = useState<any[]>([]);
   const [districtSummary, setDistrictSummary] = useState<any[]>([]);
   
   const [resultsData, setResultsData] = useState<any[]>([]);
@@ -36,12 +40,34 @@ export default function IfscDirectoryPage() {
     return () => clearTimeout(timer);
   }, [inputValue]);
 
-  // Fetch Districts 
+  // Fetch States for a specific Bank
   useEffect(() => {
-    if (selectedState && !selectedDistrict && !searchQuery) {
+    if (selectedBank && !selectedState && !searchQuery) {
+      const fetchStates = async () => {
+        setIsLoading(true);
+        const { data } = await supabase.from('ifsc_codes').select('STATE').eq('BANK', selectedBank);
+        
+        if (data) {
+          const counts = new Map();
+          data.forEach((row: any) => {
+            const s = row.STATE || 'Unknown';
+            counts.set(s, (counts.get(s) || 0) + 1);
+          });
+          const states = Array.from(counts.entries()).map(([name, count]) => ({ name, count })).sort((a,b) => a.name.localeCompare(b.name));
+          setStateSummary(states);
+        }
+        setIsLoading(false);
+      };
+      fetchStates();
+    }
+  }, [selectedBank, selectedState, searchQuery]);
+
+  // Fetch Districts for a specific Bank and State
+  useEffect(() => {
+    if (selectedBank && selectedState && !selectedDistrict && !searchQuery) {
       const fetchDistricts = async () => {
         setIsLoading(true);
-        const { data } = await supabase.from('ifsc_codes').select('DISTRICT').ilike('STATE', `%${selectedState}%`);
+        const { data } = await supabase.from('ifsc_codes').select('DISTRICT').eq('BANK', selectedBank).eq('STATE', selectedState);
         
         if (data) {
           const counts = new Map();
@@ -56,9 +82,9 @@ export default function IfscDirectoryPage() {
       };
       fetchDistricts();
     }
-  }, [selectedState, selectedDistrict, searchQuery]);
+  }, [selectedBank, selectedState, selectedDistrict, searchQuery]);
 
-  // Fetch Main Results (Context-Aware Smart Search)
+  // Fetch Main Results
   useEffect(() => {
     const fetchMainData = async () => {
       if (!searchQuery && !selectedDistrict) {
@@ -71,85 +97,37 @@ export default function IfscDirectoryPage() {
       const end = start + ITEMS_PER_PAGE - 1;
 
       let q = supabase.from('ifsc_codes').select('*', { count: 'exact' });
-      
-      // Preserve the State and District context if the user is inside a card
-      if (selectedState) {
-        q = q.ilike('STATE', `%${selectedState}%`);
-      }
-      if (selectedDistrict) {
-        q = q.ilike('DISTRICT', `%${selectedDistrict}%`);
-      }
+
+      // Apply context filters if drilling down
+      if (selectedBank) q = q.eq('BANK', selectedBank);
+      if (selectedState) q = q.eq('STATE', selectedState);
+      if (selectedDistrict) q = q.eq('DISTRICT', selectedDistrict);
 
       let qText = searchQuery.trim().toLowerCase();
 
-      // Robust Bank Dictionary
-      const bankMapping: Record<string, string> = {
-        'state bank of india': 'state bank of india',
-        'punjab national bank': 'punjab national bank',
-        'bank of india': 'bank of india',
-        'bank of baroda': 'bank of baroda',
-        'union bank of india': 'union bank of india',
-        'central bank of india': 'central bank of india',
-        'indian overseas bank': 'indian overseas bank',
-        'bank of maharashtra': 'bank of maharashtra',
-        'kotak mahindra bank': 'kotak',
-        'state bank': 'state bank of india',
-        'sbi bank': 'state bank of india',
-        'sbi': 'state bank of india',
-        'pnb bank': 'punjab national bank',
-        'pnb': 'punjab national bank',
-        'boi bank': 'bank of india',
+      // Dictionary for bank abbreviations
+      const abbreviations: {[key: string]: string} = {
+        'sbi': 'state bank',
+        'pnb': 'punjab national',
         'boi': 'bank of india',
-        'bob bank': 'bank of baroda',
         'bob': 'bank of baroda',
-        'cbi bank': 'central bank of india',
-        'cbi': 'central bank of india',
-        'iob bank': 'indian overseas bank',
-        'iob': 'indian overseas bank',
-        'bom bank': 'bank of maharashtra',
+        'cbi': 'central bank',
+        'iob': 'indian overseas',
         'bom': 'bank of maharashtra',
-        'ubi bank': 'union bank of india',
-        'ubi': 'union bank of india',
-        'hdfc bank': 'hdfc',
-        'hdfc': 'hdfc', 
-        'icici bank': 'icici',
-        'icici': 'icici',
-        'axis bank': 'axis',
-        'axis': 'axis',
-        'kotak bank': 'kotak',
-        'kotak': 'kotak',
-        'canara bank': 'canara',
-        'canara': 'canara',
-        'idbi bank': 'idbi',
-        'idbi': 'idbi',
-        'yes bank': 'yes',
-        'yes': 'yes',
-        'indusind bank': 'indusind',
-        'indusind': 'indusind',
-        'bandhan bank': 'bandhan',
-        'bandhan': 'bandhan',
-        'federal bank': 'federal',
-        'federal': 'federal'
+        'ubi': 'union bank',
+        'hfc': 'hdfc' 
       };
 
-      const bankKeys = Object.keys(bankMapping).sort((a, b) => b.length - a.length);
-      let recognizedBank = '';
-
-      for (const key of bankKeys) {
-        const regex = new RegExp(`\\b${key}\\b`, 'i');
-        if (regex.test(qText)) {
-          recognizedBank = bankMapping[key];
-          qText = qText.replace(regex, '').replace(/\s+/g, ' ').trim();
-          break;
-        }
-      }
-
-      if (recognizedBank) {
-        q = q.ilike('BANK', `%${recognizedBank}%`);
-      }
+      Object.keys(abbreviations).forEach(abbr => {
+        const regex = new RegExp(`\\b${abbr}\\b`, 'g');
+        qText = qText.replace(regex, abbreviations[abbr]);
+      });
 
       if (qText) {
-         q = q.or(`IFSC.ilike.%${qText}%,BANK.ilike.%${qText}%,BRANCH.ilike.%${qText}%,CENTRE.ilike.%${qText}%,DISTRICT.ilike.%${qText}%,CITY.ilike.%${qText}%,ADDRESS.ilike.%${qText}%`);
+        const words = qText.split(/\s+/).filter(w => w.length > 0);
+        words.forEach(word => {
+           q = q.or(`IFSC.ilike.%${word}%,BANK.ilike.%${word}%,BRANCH.ilike.%${word}%,CENTRE.ilike.%${word}%,DISTRICT.ilike.%${word}%,CITY.ilike.%${word}%,ADDRESS.ilike.%${word}%`);
+        });
       }
 
       const { data, count, error } = await q.range(start, end);
@@ -158,9 +136,9 @@ export default function IfscDirectoryPage() {
       setIsLoading(false);
     };
     fetchMainData();
-  }, [searchQuery, selectedDistrict, selectedState, currentPage]);
+  }, [searchQuery, selectedBank, selectedState, selectedDistrict, currentPage]);
 
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, selectedState, selectedDistrict]);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, selectedBank, selectedState, selectedDistrict]);
 
   const handleVoiceSearch = () => {
     if (typeof window !== 'undefined') {
@@ -180,9 +158,11 @@ export default function IfscDirectoryPage() {
     }
   };
 
-  const showStateList = !searchQuery && !selectedState;
-  const showDistrictList = !searchQuery && selectedState && !selectedDistrict;
-  const showResultsList = searchQuery || (selectedState && selectedDistrict);
+  const showBankList = !searchQuery && !selectedBank;
+  const showStateList = !searchQuery && selectedBank && !selectedState;
+  const showDistrictList = !searchQuery && selectedBank && selectedState && !selectedDistrict;
+  const showResultsList = searchQuery || (selectedBank && selectedState && selectedDistrict);
+  
   const totalPages = Math.ceil(totalResults / ITEMS_PER_PAGE);
 
   return (
@@ -198,7 +178,7 @@ export default function IfscDirectoryPage() {
           <div>
             <div className="inline-block px-3 py-1 mb-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-semibold tracking-wide uppercase">Banking Directory</div>
             <h1 className="text-4xl font-extrabold text-white tracking-tight mb-2">India IFSC Codes Hub</h1>
-            <p className="text-slate-300 text-base font-light max-w-xl">Search any bank branch, IFSC code, or browse through states and districts.</p>
+            <p className="text-slate-300 text-base font-light max-w-xl">Browse by bank name, state, and district, or search any branch details.</p>
           </div>
           
           <div className="w-full md:w-96 relative flex items-center">
@@ -218,8 +198,21 @@ export default function IfscDirectoryPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        {selectedState && <button onClick={() => { setSelectedState(null); setSelectedDistrict(null); setInputValue(''); setSearchQuery(''); }} className="flex items-center gap-2 text-blue-400 hover:text-white transition-colors bg-blue-500/10 px-4 py-2 rounded-lg border border-blue-500/20 text-sm font-medium">← All States</button>}
-        {selectedDistrict && selectedState && <button onClick={() => {setSelectedDistrict(null); setInputValue(''); setSearchQuery('');}} className="flex items-center gap-2 text-blue-400 hover:text-white transition-colors bg-blue-500/10 px-4 py-2 rounded-lg border border-blue-500/20 text-sm font-medium">← All Districts in <span className="capitalize" translate="no">{selectedState.toLowerCase()}</span></button>}
+        {selectedBank && (
+          <button onClick={() => { setSelectedBank(null); setSelectedState(null); setSelectedDistrict(null); setInputValue(''); setSearchQuery(''); }} className="flex items-center gap-2 text-blue-400 hover:text-white transition-colors bg-blue-500/10 px-4 py-2 rounded-lg border border-blue-500/20 text-sm font-medium">
+            ← All Banks
+          </button>
+        )}
+        {selectedState && selectedBank && (
+          <button onClick={() => { setSelectedState(null); setSelectedDistrict(null); setInputValue(''); setSearchQuery(''); }} className="flex items-center gap-2 text-blue-400 hover:text-white transition-colors bg-blue-500/10 px-4 py-2 rounded-lg border border-blue-500/20 text-sm font-medium">
+            ← All States
+          </button>
+        )}
+        {selectedDistrict && selectedState && selectedBank && (
+          <button onClick={() => { setSelectedDistrict(null); setInputValue(''); setSearchQuery(''); }} className="flex items-center gap-2 text-blue-400 hover:text-white transition-colors bg-blue-500/10 px-4 py-2 rounded-lg border border-blue-500/20 text-sm font-medium">
+            ← All Districts in <span className="capitalize" translate="no">{selectedState.toLowerCase()}</span>
+          </button>
+        )}
       </div>
 
       {isLoading ? (
@@ -229,13 +222,25 @@ export default function IfscDirectoryPage() {
         </div>
       ) : (
         <>
+          {showBankList && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {POPULAR_BANKS.map((bankName, index) => (
+                <div key={index} onClick={() => setSelectedBank(bankName)} className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 flex flex-col items-center text-center shadow-sm group hover:border-blue-500/50 hover:bg-slate-800/80 transition-all cursor-pointer relative overflow-hidden">
+                  <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">🏦</div>
+                  <h3 className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors mb-2 capitalize" translate="no">{bankName.toLowerCase()}</h3>
+                  <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-xs font-bold tracking-wide mt-auto">Select Bank ➔</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {showStateList && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {INDIAN_STATES.map((stateName, index) => (
-                <div key={index} onClick={() => setSelectedState(stateName)} className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 flex flex-col items-center text-center shadow-sm group hover:border-blue-500/50 hover:bg-slate-800/80 transition-all cursor-pointer relative overflow-hidden">
-                  <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">🏦</div>
-                  <h3 className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors mb-2 capitalize" translate="no">{stateName.toLowerCase()}</h3>
-                  <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-xs font-bold tracking-wide mt-auto">Explore Branches ➔</span>
+              {stateSummary.map((state: any, index: number) => (
+                <div key={index} onClick={() => setSelectedState(state.name)} className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 flex flex-col items-center text-center shadow-sm group hover:border-blue-500/50 hover:bg-slate-800/80 transition-all cursor-pointer relative overflow-hidden">
+                  <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">🗺️</div>
+                  <h3 className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors mb-2 capitalize" translate="no">{state.name?.toLowerCase()}</h3>
+                  <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-xs font-bold tracking-wide mt-auto">{state.count} Branches</span>
                 </div>
               ))}
             </div>
@@ -262,7 +267,9 @@ export default function IfscDirectoryPage() {
                   const branchName = row.BRANCH || 'N/A';
                   const distName = row.DISTRICT || 'N/A';
                   const stateName = row.STATE || 'N/A';
+                  const city = row.CENTRE || row.CITY || 'N/A';
                   const address = row.ADDRESS || 'N/A';
+                  const micrCode = row.MICR || 'Not Available';
 
                   return (
                     <div key={index} className="bg-slate-900/80 p-6 rounded-2xl border border-slate-700 hover:border-blue-500/50 transition-all flex flex-col relative shadow-xl group hover:scale-[1.01]">
@@ -274,9 +281,13 @@ export default function IfscDirectoryPage() {
                             <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg> {branchName.toLowerCase()}
                           </p>
                         </div>
-                        <span className="bg-blue-600 text-white px-4 py-2 rounded-xl text-lg font-black shadow-lg shadow-blue-600/20 shrink-0 tracking-widest">{ifscCode}</span>
+                        <div className="flex flex-col items-end">
+                          <span className="bg-blue-600 text-white px-4 py-2 rounded-xl text-lg font-black shadow-lg shadow-blue-600/20 shrink-0 tracking-widest">{ifscCode}</span>
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-y-4 gap-x-3 pt-2 text-sm flex-grow">
+                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">City / Centre</span><span className="text-white font-medium truncate block capitalize" translate="no">{city.toLowerCase()}</span></div>
+                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">MICR Code</span><span className="text-white font-medium truncate block">{micrCode}</span></div>
                         <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">District</span><span className="text-white font-medium truncate block capitalize" translate="no">{distName.toLowerCase()}</span></div>
                         <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">State</span><span className="text-white font-medium truncate block capitalize" translate="no">{stateName.toLowerCase()}</span></div>
                         <div className="col-span-2"><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">Address</span><span className="text-white font-medium block text-xs leading-relaxed capitalize" translate="no">{address.toLowerCase()}</span></div>
