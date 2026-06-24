@@ -4,14 +4,14 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 
-// Popular banks list mapped to standard uppercase DB formats
+// Safely formatted popular banks for robust database matching
 const POPULAR_BANKS = [
-  "STATE BANK OF INDIA", "HDFC BANK", "ICICI BANK LIMITED", "PUNJAB NATIONAL BANK",
+  "STATE BANK OF INDIA", "HDFC BANK", "ICICI BANK", "PUNJAB NATIONAL BANK",
   "BANK OF BARODA", "AXIS BANK", "CANARA BANK", "UNION BANK OF INDIA",
   "BANK OF INDIA", "INDIAN BANK", "CENTRAL BANK OF INDIA", "INDIAN OVERSEAS BANK",
-  "KOTAK MAHINDRA BANK LIMITED", "UCO BANK", "BANK OF MAHARASHTRA", "INDUSIND BANK",
-  "PUNJAB AND SIND BANK", "YES BANK", "IDFC FIRST BANK LIMITED", "BANDHAN BANK LIMITED",
-  "FEDERAL BANK", "SOUTH INDIAN BANK", "KARNATAKA BANK LIMITED", "KARUR VYSYA BANK"
+  "KOTAK MAHINDRA BANK", "UCO BANK", "BANK OF MAHARASHTRA", "INDUSIND BANK",
+  "PUNJAB AND SIND BANK", "YES BANK", "IDFC FIRST BANK", "BANDHAN BANK",
+  "FEDERAL BANK", "SOUTH INDIAN BANK", "KARNATAKA BANK", "KARUR VYSYA BANK"
 ];
 
 export default function IfscDirectoryPage() {
@@ -45,9 +45,10 @@ export default function IfscDirectoryPage() {
     if (selectedBank && !selectedState && !searchQuery) {
       const fetchStates = async () => {
         setIsLoading(true);
-        const { data } = await supabase.from('ifsc_codes').select('STATE').eq('BANK', selectedBank);
+        // Using ilike to ensure we catch variations like "ICICI BANK LIMITED"
+        const { data } = await supabase.from('ifsc_codes').select('STATE').ilike('BANK', `%${selectedBank}%`);
         
-        if (data) {
+        if (data && data.length > 0) {
           const counts = new Map();
           data.forEach((row: any) => {
             const s = row.STATE || 'Unknown';
@@ -55,6 +56,8 @@ export default function IfscDirectoryPage() {
           });
           const states = Array.from(counts.entries()).map(([name, count]) => ({ name, count })).sort((a,b) => a.name.localeCompare(b.name));
           setStateSummary(states);
+        } else {
+          setStateSummary([]);
         }
         setIsLoading(false);
       };
@@ -67,9 +70,9 @@ export default function IfscDirectoryPage() {
     if (selectedBank && selectedState && !selectedDistrict && !searchQuery) {
       const fetchDistricts = async () => {
         setIsLoading(true);
-        const { data } = await supabase.from('ifsc_codes').select('DISTRICT').eq('BANK', selectedBank).eq('STATE', selectedState);
+        const { data } = await supabase.from('ifsc_codes').select('DISTRICT').ilike('BANK', `%${selectedBank}%`).ilike('STATE', `%${selectedState}%`);
         
-        if (data) {
+        if (data && data.length > 0) {
           const counts = new Map();
           data.forEach((row: any) => {
             const d = row.DISTRICT || 'Unknown';
@@ -77,6 +80,8 @@ export default function IfscDirectoryPage() {
           });
           const dists = Array.from(counts.entries()).map(([name, count]) => ({ name, count })).sort((a,b) => a.name.localeCompare(b.name));
           setDistrictSummary(dists);
+        } else {
+          setDistrictSummary([]);
         }
         setIsLoading(false);
       };
@@ -98,10 +103,10 @@ export default function IfscDirectoryPage() {
 
       let q = supabase.from('ifsc_codes').select('*', { count: 'exact' });
 
-      // Apply context filters if drilling down
-      if (selectedBank) q = q.eq('BANK', selectedBank);
-      if (selectedState) q = q.eq('STATE', selectedState);
-      if (selectedDistrict) q = q.eq('DISTRICT', selectedDistrict);
+      // Apply context filters if user is drilling down through cards
+      if (selectedBank && !searchQuery) q = q.ilike('BANK', `%${selectedBank}%`);
+      if (selectedState && !searchQuery) q = q.ilike('STATE', `%${selectedState}%`);
+      if (selectedDistrict && !searchQuery) q = q.ilike('DISTRICT', `%${selectedDistrict}%`);
 
       let qText = searchQuery.trim().toLowerCase();
 
@@ -270,33 +275,35 @@ export default function IfscDirectoryPage() {
                   const city = row.CENTRE || row.CITY || 'N/A';
                   const address = row.ADDRESS || 'N/A';
                   const micrCode = row.MICR || 'Not Available';
+                  const contact = row.CONTACT || 'Not Available';
 
                   return (
                     <div key={index} className="bg-slate-900/80 p-6 rounded-2xl border border-slate-700 hover:border-blue-500/50 transition-all flex flex-col relative shadow-xl group hover:scale-[1.01]">
                       <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-bl-[100px] -z-10 group-hover:bg-blue-500/10 transition-colors"></div>
                       <div className="flex justify-between items-start gap-4 mb-4 pb-4 border-b border-slate-700/50">
-                        <div>
+                        <div className="flex-1 pr-4">
                           <h3 className="text-xl font-bold text-blue-400 mb-1 group-hover:text-blue-300 capitalize" translate="no">{bankName.toLowerCase()}</h3>
                           <p className="text-sm font-semibold text-slate-300 capitalize flex items-center gap-1" translate="no">
                             <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg> {branchName.toLowerCase()}
                           </p>
                         </div>
-                        <div className="flex flex-col items-end">
-                          <span className="bg-blue-600 text-white px-4 py-2 rounded-xl text-lg font-black shadow-lg shadow-blue-600/20 shrink-0 tracking-widest">{ifscCode}</span>
+                        <div className="flex flex-col items-end shrink-0">
+                          <span className="bg-blue-600 text-white px-4 py-2 rounded-xl text-lg font-black shadow-lg shadow-blue-600/20 tracking-widest mb-2">{ifscCode}</span>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-y-4 gap-x-3 pt-2 text-sm flex-grow">
                         <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">City / Centre</span><span className="text-white font-medium truncate block capitalize" translate="no">{city.toLowerCase()}</span></div>
+                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">Contact Number</span><span className="text-white font-medium truncate block">{contact}</span></div>
                         <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">MICR Code</span><span className="text-white font-medium truncate block">{micrCode}</span></div>
                         <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">District</span><span className="text-white font-medium truncate block capitalize" translate="no">{distName.toLowerCase()}</span></div>
-                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">State</span><span className="text-white font-medium truncate block capitalize" translate="no">{stateName.toLowerCase()}</span></div>
+                        <div className="col-span-2"><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">State</span><span className="text-white font-medium block capitalize" translate="no">{stateName.toLowerCase()}</span></div>
                         <div className="col-span-2"><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">Address</span><span className="text-white font-medium block text-xs leading-relaxed capitalize" translate="no">{address.toLowerCase()}</span></div>
                       </div>
                     </div>
                   )
                 })
               ) : (
-                <div className="col-span-full py-12 text-center"><p className="text-slate-400 text-lg">No branches found matching "{searchQuery}"</p></div>
+                <div className="col-span-full py-12 text-center"><p className="text-slate-400 text-lg">No branches found matching your selection.</p></div>
               )}
             </div>
           )}
