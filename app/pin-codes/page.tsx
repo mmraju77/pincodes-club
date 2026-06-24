@@ -50,27 +50,33 @@ export default function PincodePage() {
     if (query) { setInputValue(query); setSearchQuery(query); }
   }, []);
 
+  // 1. SUGGESTIONS FETCHING
   useEffect(() => {
     if (searchQuery.length < 2) { setSuggestions([]); return; }
     const fetchSuggestions = async () => {
+      const qText = searchQuery.trim();
       let q = supabase.from('pincodes').select('officename, pincode, district, statename').limit(6);
-      if (/^\d+$/.test(searchQuery.trim())) {
-        q = q.eq('pincode', parseInt(searchQuery.trim()));
+      
+      if (/^\d+$/.test(qText)) {
+        q = q.eq('pincode', parseInt(qText));
       } else {
-        q = q.or(`officename.ilike.%${searchQuery.trim()}%,district.ilike.%${searchQuery.trim()}%`);
+        q = q.or(`officename.ilike.%${qText}%,district.ilike.%${qText}%`);
       }
+      
       const { data } = await q;
       if (data) setSuggestions(data);
     };
     fetchSuggestions();
   }, [searchQuery]);
 
+  // 2. DISTRICTS FETCHING (SMART MATCHING)
   useEffect(() => {
     if (selectedState && !selectedDistrict && !searchQuery) {
       const fetchDistricts = async () => {
         setIsLoading(true);
-        // ఇక్కడ మనం .ilike వాడాము, కాబట్టి క్యాపిటల్ లెటర్స్ ఉన్నా వర్క్ అవుతుంది!
-        const { data } = await supabase.from('pincodes').select('district').ilike('statename', selectedState);
+        // % వాడటం వల్ల డేటాబేస్ లో క్యాపిటల్ ఉన్నా, స్పేస్ ఉన్నా ఆటోమాటిక్ గా పసిగడుతుంది!
+        const { data } = await supabase.from('pincodes').select('district').ilike('statename', `%${selectedState}%`);
+        
         if (data) {
           const counts = new Map();
           data.forEach(row => {
@@ -86,6 +92,7 @@ export default function PincodePage() {
     }
   }, [selectedState, selectedDistrict, searchQuery]);
 
+  // 3. MAIN RESULTS FETCHING
   useEffect(() => {
     const fetchMainData = async () => {
       if (!searchQuery && !selectedDistrict) {
@@ -98,16 +105,17 @@ export default function PincodePage() {
       const end = start + ITEMS_PER_PAGE - 1;
 
       let q = supabase.from('pincodes').select('*', { count: 'exact' });
+      const qText = searchQuery.trim();
 
       if (searchQuery) {
-        if (/^\d+$/.test(searchQuery.trim())) {
-          q = q.eq('pincode', parseInt(searchQuery.trim()));
+        if (/^\d+$/.test(qText)) {
+          q = q.eq('pincode', parseInt(qText));
         } else {
-          q = q.or(`officename.ilike.%${searchQuery.trim()}%,district.ilike.%${searchQuery.trim()}%`);
+          q = q.or(`officename.ilike.%${qText}%,district.ilike.%${qText}%`);
         }
       } else if (selectedDistrict && selectedState) {
-        // ఇక్కడ కూడా .ilike వాడాము!
-        q = q.ilike('statename', selectedState).ilike('district', selectedDistrict);
+        // ఇక్కడ కూడా % వాడాము
+        q = q.ilike('statename', `%${selectedState}%`).eq('district', selectedDistrict);
       }
 
       const { data, count } = await q.range(start, end);
