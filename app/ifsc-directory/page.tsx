@@ -58,7 +58,7 @@ export default function IfscDirectoryPage() {
     }
   }, [selectedState, selectedDistrict, searchQuery]);
 
-  // Fetch Main Results (Smart Multi-word Search)
+  // Fetch Main Results (Context-Aware Smart Search)
   useEffect(() => {
     const fetchMainData = async () => {
       if (!searchQuery && !selectedDistrict) {
@@ -71,37 +71,85 @@ export default function IfscDirectoryPage() {
       const end = start + ITEMS_PER_PAGE - 1;
 
       let q = supabase.from('ifsc_codes').select('*', { count: 'exact' });
+      
+      // Preserve the State and District context if the user is inside a card
+      if (selectedState) {
+        q = q.ilike('STATE', `%${selectedState}%`);
+      }
+      if (selectedDistrict) {
+        q = q.ilike('DISTRICT', `%${selectedDistrict}%`);
+      }
+
       let qText = searchQuery.trim().toLowerCase();
 
-      // Dictionary for bank abbreviations
-      const abbreviations: {[key: string]: string} = {
-        'sbi': 'state bank',
-        'pnb': 'punjab national',
+      // Robust Bank Dictionary
+      const bankMapping: Record<string, string> = {
+        'state bank of india': 'state bank of india',
+        'punjab national bank': 'punjab national bank',
+        'bank of india': 'bank of india',
+        'bank of baroda': 'bank of baroda',
+        'union bank of india': 'union bank of india',
+        'central bank of india': 'central bank of india',
+        'indian overseas bank': 'indian overseas bank',
+        'bank of maharashtra': 'bank of maharashtra',
+        'kotak mahindra bank': 'kotak',
+        'state bank': 'state bank of india',
+        'sbi bank': 'state bank of india',
+        'sbi': 'state bank of india',
+        'pnb bank': 'punjab national bank',
+        'pnb': 'punjab national bank',
+        'boi bank': 'bank of india',
         'boi': 'bank of india',
+        'bob bank': 'bank of baroda',
         'bob': 'bank of baroda',
-        'cbi': 'central bank',
-        'iob': 'indian overseas',
+        'cbi bank': 'central bank of india',
+        'cbi': 'central bank of india',
+        'iob bank': 'indian overseas bank',
+        'iob': 'indian overseas bank',
+        'bom bank': 'bank of maharashtra',
         'bom': 'bank of maharashtra',
-        'ubi': 'union bank',
-        'hfc': 'hdfc' 
+        'ubi bank': 'union bank of india',
+        'ubi': 'union bank of india',
+        'hdfc bank': 'hdfc',
+        'hdfc': 'hdfc', 
+        'icici bank': 'icici',
+        'icici': 'icici',
+        'axis bank': 'axis',
+        'axis': 'axis',
+        'kotak bank': 'kotak',
+        'kotak': 'kotak',
+        'canara bank': 'canara',
+        'canara': 'canara',
+        'idbi bank': 'idbi',
+        'idbi': 'idbi',
+        'yes bank': 'yes',
+        'yes': 'yes',
+        'indusind bank': 'indusind',
+        'indusind': 'indusind',
+        'bandhan bank': 'bandhan',
+        'bandhan': 'bandhan',
+        'federal bank': 'federal',
+        'federal': 'federal'
       };
 
-      // Replace abbreviations with full names
-      Object.keys(abbreviations).forEach(abbr => {
-        const regex = new RegExp(`\\b${abbr}\\b`, 'g');
-        qText = qText.replace(regex, abbreviations[abbr]);
-      });
+      const bankKeys = Object.keys(bankMapping).sort((a, b) => b.length - a.length);
+      let recognizedBank = '';
+
+      for (const key of bankKeys) {
+        const regex = new RegExp(`\\b${key}\\b`, 'i');
+        if (regex.test(qText)) {
+          recognizedBank = bankMapping[key];
+          qText = qText.replace(regex, '').replace(/\s+/g, ' ').trim();
+          break;
+        }
+      }
+
+      if (recognizedBank) {
+        q = q.ilike('BANK', `%${recognizedBank}%`);
+      }
 
       if (qText) {
-        // Split search string into array of words
-        const words = qText.split(/\s+/).filter(w => w.length > 0);
-        
-        // Each word must match at least one column
-        words.forEach(word => {
-           q = q.or(`IFSC.ilike.%${word}%,BANK.ilike.%${word}%,BRANCH.ilike.%${word}%,CENTRE.ilike.%${word}%,DISTRICT.ilike.%${word}%,CITY.ilike.%${word}%,STATE.ilike.%${word}%,ADDRESS.ilike.%${word}%`);
-        });
-      } else if (selectedDistrict && selectedState) {
-        q = q.ilike('STATE', `%${selectedState}%`).ilike('DISTRICT', `%${selectedDistrict}%`);
+         q = q.or(`IFSC.ilike.%${qText}%,BANK.ilike.%${qText}%,BRANCH.ilike.%${qText}%,CENTRE.ilike.%${qText}%,DISTRICT.ilike.%${qText}%,CITY.ilike.%${qText}%,ADDRESS.ilike.%${qText}%`);
       }
 
       const { data, count, error } = await q.range(start, end);
@@ -113,7 +161,6 @@ export default function IfscDirectoryPage() {
   }, [searchQuery, selectedDistrict, selectedState, currentPage]);
 
   useEffect(() => { setCurrentPage(1); }, [searchQuery, selectedState, selectedDistrict]);
-  useEffect(() => { if (inputValue.length > 0) { setSelectedState(null); setSelectedDistrict(null); } }, [inputValue]);
 
   const handleVoiceSearch = () => {
     if (typeof window !== 'undefined') {
