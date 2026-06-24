@@ -4,20 +4,19 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 
+// Keeping state names in uppercase to match the database
 const INDIAN_STATES = [
-  "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar",
-  "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli", "Daman and Diu", "Delhi", "Goa",
-  "Gujarat", "Haryana", "Himachal Pradesh", "Jammu and Kashmir", "Jharkhand", "Karnataka",
-  "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya",
-  "Mizoram", "Nagaland", "Odisha", "Puducherry", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
-  "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
+  "ANDAMAN AND NICOBAR ISLANDS", "ANDHRA PRADESH", "ARUNACHAL PRADESH", "ASSAM", "BIHAR",
+  "CHANDIGARH", "CHHATTISGARH", "DADRA AND NAGAR HAVELI", "DAMAN AND DIU", "DELHI", "GOA",
+  "GUJARAT", "HARYANA", "HIMACHAL PRADESH", "JAMMU AND KASHMIR", "JHARKHAND", "KARNATAKA",
+  "KERALA", "LADAKH", "LAKSHADWEEP", "MADHYA PRADESH", "MAHARASHTRA", "MANIPUR", "MEGHALAYA",
+  "MIZORAM", "NAGALAND", "ODISHA", "PUDUCHERRY", "PUNJAB", "RAJASTHAN", "SIKKIM", "TAMIL NADU",
+  "TELANGANA", "TRIPURA", "UTTAR PRADESH", "UTTARAKHAND", "WEST BENGAL"
 ];
 
-export default function PincodePage() {
+export default function PincodesPage() {
   const [inputValue, setInputValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
   
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -32,54 +31,21 @@ export default function PincodePage() {
   const ITEMS_PER_PAGE = 50;
 
   useEffect(() => {
-    if (inputValue === '') {
-      setSearchQuery('');
-      setShowSuggestions(false);
-      return;
-    }
     const timer = setTimeout(() => {
       setSearchQuery(inputValue);
-      setShowSuggestions(true);
     }, 300);
     return () => clearTimeout(timer);
   }, [inputValue]);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const query = params.get('search');
-    if (query) { setInputValue(query); setSearchQuery(query); }
-  }, []);
-
-  // 1. SUGGESTIONS FETCHING
-  useEffect(() => {
-    if (searchQuery.length < 2) { setSuggestions([]); return; }
-    const fetchSuggestions = async () => {
-      const qText = searchQuery.trim();
-      let q = supabase.from('pincodes').select('officename, pincode, district, statename').limit(6);
-      
-      if (/^\d+$/.test(qText)) {
-        q = q.eq('pincode', parseInt(qText));
-      } else {
-        q = q.or(`officename.ilike.%${qText}%,district.ilike.%${qText}%`);
-      }
-      
-      const { data } = await q;
-      if (data) setSuggestions(data);
-    };
-    fetchSuggestions();
-  }, [searchQuery]);
-
-  // 2. DISTRICTS FETCHING (SMART MATCHING)
-  useEffect(() => {
     if (selectedState && !selectedDistrict && !searchQuery) {
       const fetchDistricts = async () => {
         setIsLoading(true);
-        // % వాడటం వల్ల డేటాబేస్ లో క్యాపిటల్ ఉన్నా, స్పేస్ ఉన్నా ఆటోమాటిక్ గా పసిగడుతుంది!
         const { data } = await supabase.from('pincodes').select('district').ilike('statename', `%${selectedState}%`);
         
         if (data) {
           const counts = new Map();
-          data.forEach(row => {
+          data.forEach((row: any) => {
             const d = row.district || 'Unknown';
             counts.set(d, (counts.get(d) || 0) + 1);
           });
@@ -92,7 +58,6 @@ export default function PincodePage() {
     }
   }, [selectedState, selectedDistrict, searchQuery]);
 
-  // 3. MAIN RESULTS FETCHING
   useEffect(() => {
     const fetchMainData = async () => {
       if (!searchQuery && !selectedDistrict) {
@@ -108,17 +73,18 @@ export default function PincodePage() {
       const qText = searchQuery.trim();
 
       if (searchQuery) {
-        if (/^\d+$/.test(qText)) {
+        const isNum = /^\d+$/.test(qText);
+        if (isNum) {
           q = q.eq('pincode', parseInt(qText));
         } else {
-          q = q.or(`officename.ilike.%${qText}%,district.ilike.%${qText}%`);
+          q = q.or(`officename.ilike.%${qText}%,district.ilike.%${qText}%,statename.ilike.%${qText}%`);
         }
       } else if (selectedDistrict && selectedState) {
-        // ఇక్కడ కూడా % వాడాము
-        q = q.ilike('statename', `%${selectedState}%`).eq('district', selectedDistrict);
+        q = q.ilike('statename', `%${selectedState}%`).ilike('district', `%${selectedDistrict}%`);
       }
 
-      const { data, count } = await q.range(start, end);
+      const { data, count, error } = await q.range(start, end);
+      
       if (data) { setResultsData(data); setTotalResults(count || 0); }
       setIsLoading(false);
     };
@@ -171,42 +137,27 @@ export default function PincodePage() {
             <svg className="w-5 h-5 absolute left-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             <input 
               type="text" 
-              placeholder="Search Pincode, Division, Office..." 
+              placeholder="Search Pincode, Office Name..." 
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)} 
-              onFocus={() => setShowSuggestions(true)}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
               className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl py-3 pl-10 pr-12 focus:outline-none focus:border-orange-500 transition-colors shadow-inner font-medium"
             />
             <button onClick={handleVoiceSearch} className={`absolute right-2 p-2 rounded-lg transition-all ${isListening ? 'bg-orange-500 animate-pulse text-white' : 'text-slate-400 hover:text-orange-400 hover:bg-slate-800'}`} title="Voice Search">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
             </button>
-            {showSuggestions && suggestions.length > 0 && (
-              <ul className="absolute top-14 left-0 z-50 w-full bg-slate-800 border border-slate-600 rounded-xl shadow-2xl max-h-64 overflow-y-auto">
-                {suggestions.map((row: any, idx: number) => (
-                  <li key={idx} onClick={() => { setInputValue(row.officename); setSearchQuery(row.officename); setShowSuggestions(false); }} className="px-4 py-3 hover:bg-orange-500 cursor-pointer border-b border-slate-700 last:border-0 transition-colors group flex justify-between items-center">
-                    <div className="flex flex-col">
-                      <span className="font-bold text-slate-200 group-hover:text-white truncate max-w-[200px]" translate="no">{row.officename}</span>
-                      <span className="text-xs text-slate-400 group-hover:text-orange-100 truncate max-w-[200px]" translate="no">{row.district}, {row.statename}</span>
-                    </div>
-                    <span className="text-xs font-black bg-slate-900 text-orange-400 px-2 py-1 rounded group-hover:bg-white group-hover:text-orange-600 shrink-0">{row.pincode}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
         {selectedState && <button onClick={() => { setSelectedState(null); setSelectedDistrict(null); setInputValue(''); setSearchQuery(''); }} className="flex items-center gap-2 text-orange-400 hover:text-white transition-colors bg-orange-500/10 px-4 py-2 rounded-lg border border-orange-500/20 text-sm font-medium">← All States</button>}
-        {selectedDistrict && <button onClick={() => {setSelectedDistrict(null); setInputValue(''); setSearchQuery('');}} className="flex items-center gap-2 text-orange-400 hover:text-white transition-colors bg-orange-500/10 px-4 py-2 rounded-lg border border-orange-500/20 text-sm font-medium">← All Districts in <span translate="no">{selectedState}</span></button>}
+        {selectedDistrict && <button onClick={() => {setSelectedDistrict(null); setInputValue(''); setSearchQuery('');}} className="flex items-center gap-2 text-orange-400 hover:text-white transition-colors bg-orange-500/10 px-4 py-2 rounded-lg border border-orange-500/20 text-sm font-medium">← All Districts in <span className="capitalize" translate="no">{selectedState.toLowerCase()}</span></button>}
       </div>
 
       {isLoading ? (
         <div className="py-24 text-center">
           <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400 animate-pulse text-lg">Fetching live data...</p>
+          <p className="text-slate-400 animate-pulse text-lg">Fetching live postal data...</p>
         </div>
       ) : (
         <>
@@ -215,7 +166,7 @@ export default function PincodePage() {
               {INDIAN_STATES.map((stateName, index) => (
                 <div key={index} onClick={() => setSelectedState(stateName)} className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 flex flex-col items-center text-center shadow-sm group hover:border-orange-500/50 hover:bg-slate-800/80 transition-all cursor-pointer relative overflow-hidden">
                   <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">🗺️</div>
-                  <h3 className="text-lg font-bold text-white group-hover:text-orange-400 transition-colors mb-2" translate="no">{stateName}</h3>
+                  <h3 className="text-lg font-bold text-white group-hover:text-orange-400 transition-colors mb-2 capitalize" translate="no">{stateName.toLowerCase()}</h3>
                   <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-3 py-1 rounded-full text-xs font-bold tracking-wide mt-auto">Explore Districts ➔</span>
                 </div>
               ))}
@@ -226,9 +177,9 @@ export default function PincodePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {districtSummary.map((dist: any, index: number) => (
                 <div key={index} onClick={() => setSelectedDistrict(dist.name)} className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 flex flex-col items-center text-center shadow-sm group hover:border-orange-500/50 hover:bg-slate-800/80 transition-all cursor-pointer relative overflow-hidden">
-                  <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">📍</div>
-                  <h3 className="text-lg font-bold text-white group-hover:text-orange-400 transition-colors mb-2" translate="no">{dist.name}</h3>
-                  <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-3 py-1 rounded-full text-xs font-bold tracking-wide mt-auto">{dist.count} Locations</span>
+                  <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">📮</div>
+                  <h3 className="text-lg font-bold text-white group-hover:text-orange-400 transition-colors mb-2 capitalize" translate="no">{dist.name.toLowerCase()}</h3>
+                  <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-3 py-1 rounded-full text-xs font-bold tracking-wide mt-auto">{dist.count} Offices</span>
                 </div>
               ))}
             </div>
@@ -238,31 +189,35 @@ export default function PincodePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {resultsData.length > 0 ? (
                 resultsData.map((row: any, index: number) => {
-                  const seoUrl = `/pin-codes/${row.pincode}?office=${encodeURIComponent(row.officename || '')}&district=${encodeURIComponent(row.district || '')}&state=${encodeURIComponent(row.statename || '')}&delivery=${encodeURIComponent(row.delivery || '')}`;
+                  const pCode = row.pincode || 'N/A';
+                  const officeName = row.officename || 'N/A';
+                  const type = row.officetype || 'N/A';
+                  const distName = row.district || 'N/A';
+                  const stateName = row.statename || 'N/A';
+                  const divName = row.divisionname || 'N/A';
+
                   return (
-                    <Link href={seoUrl} prefetch={false} key={index} className="bg-slate-900/80 p-6 rounded-2xl border border-slate-700 hover:border-orange-500/50 transition-all flex flex-col relative shadow-xl block cursor-pointer group hover:scale-[1.01]">
+                    <div key={index} className="bg-slate-900/80 p-6 rounded-2xl border border-slate-700 hover:border-orange-500/50 transition-all flex flex-col relative shadow-xl group hover:scale-[1.01]">
                       <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/5 rounded-bl-[100px] -z-10 group-hover:bg-orange-500/10 transition-colors"></div>
                       <div className="flex justify-between items-start gap-4 mb-4 pb-4 border-b border-slate-700/50">
                         <div>
-                          <h3 className="text-xl font-bold text-orange-400 mb-1 group-hover:text-orange-300" translate="no">{row.officename}</h3>
+                          <h3 className="text-xl font-bold text-orange-400 mb-1 group-hover:text-orange-300 capitalize" translate="no">{officeName.toLowerCase()}</h3>
                           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg> Post Office
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg> {type}
                           </p>
                         </div>
-                        <span className="bg-orange-600 text-white px-4 py-2 rounded-xl text-xl font-black shadow-lg shadow-orange-600/20 shrink-0 tracking-widest">{row.pincode}</span>
+                        <span className="bg-orange-600 text-white px-4 py-2 rounded-xl text-xl font-black shadow-lg shadow-orange-600/20 shrink-0 tracking-widest">{pCode}</span>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-4 gap-x-3 pt-2 text-sm flex-grow">
-                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">State</span><span className="text-white font-medium truncate block" translate="no">{row.statename}</span></div>
-                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">District</span><span className="text-white font-medium truncate block" translate="no">{row.district}</span></div>
-                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">Region</span><span className="text-white font-medium truncate block" translate="no">{row.regionname}</span></div>
-                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">Circle</span><span className="text-white font-medium truncate block" translate="no">{row.circlename}</span></div>
-                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">Division</span><span className="text-white font-medium truncate block" translate="no">{row.divisionname}</span></div>
+                      <div className="grid grid-cols-2 gap-y-4 gap-x-3 pt-2 text-sm flex-grow">
+                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">District</span><span className="text-white font-medium truncate block capitalize" translate="no">{distName.toLowerCase()}</span></div>
+                        <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">State</span><span className="text-white font-medium truncate block capitalize" translate="no">{stateName.toLowerCase()}</span></div>
+                        <div className="col-span-2"><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">Division</span><span className="text-white font-medium block text-xs leading-relaxed capitalize" translate="no">{divName.toLowerCase()}</span></div>
                       </div>
-                    </Link>
+                    </div>
                   )
                 })
               ) : (
-                <div className="col-span-full py-12 text-center"><p className="text-slate-400 text-lg">No PIN records found matching "{searchQuery}"</p></div>
+                <div className="col-span-full py-12 text-center"><p className="text-slate-400 text-lg">No Post Office records found matching "{searchQuery}"</p></div>
               )}
             </div>
           )}
