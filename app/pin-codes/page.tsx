@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 
-// Keeping state names in uppercase to match the database
 const INDIAN_STATES = [
   "ANDAMAN AND NICOBAR ISLANDS", "ANDHRA PRADESH", "ARUNACHAL PRADESH", "ASSAM", "BIHAR",
   "CHANDIGARH", "CHHATTISGARH", "DADRA AND NAGAR HAVELI", "DAMAN AND DIU", "DELHI", "GOA",
@@ -151,7 +150,7 @@ export default function PincodesPage() {
 
       <div className="flex flex-wrap items-center gap-3">
         {selectedState && <button onClick={() => { setSelectedState(null); setSelectedDistrict(null); setInputValue(''); setSearchQuery(''); }} className="flex items-center gap-2 text-orange-400 hover:text-white transition-colors bg-orange-500/10 px-4 py-2 rounded-lg border border-orange-500/20 text-sm font-medium">← All States</button>}
-        {selectedDistrict && <button onClick={() => {setSelectedDistrict(null); setInputValue(''); setSearchQuery('');}} className="flex items-center gap-2 text-orange-400 hover:text-white transition-colors bg-orange-500/10 px-4 py-2 rounded-lg border border-orange-500/20 text-sm font-medium">← All Districts in <span className="capitalize" translate="no">{selectedState.toLowerCase()}</span></button>}
+        {selectedDistrict && selectedState && <button onClick={() => {setSelectedDistrict(null); setInputValue(''); setSearchQuery('');}} className="flex items-center gap-2 text-orange-400 hover:text-white transition-colors bg-orange-500/10 px-4 py-2 rounded-lg border border-orange-500/20 text-sm font-medium">← All Districts in <span className="capitalize" translate="no">{selectedState.toLowerCase()}</span></button>}
       </div>
 
       {isLoading ? (
@@ -178,7 +177,7 @@ export default function PincodesPage() {
               {districtSummary.map((dist: any, index: number) => (
                 <div key={index} onClick={() => setSelectedDistrict(dist.name)} className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 flex flex-col items-center text-center shadow-sm group hover:border-orange-500/50 hover:bg-slate-800/80 transition-all cursor-pointer relative overflow-hidden">
                   <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">📮</div>
-                  <h3 className="text-lg font-bold text-white group-hover:text-orange-400 transition-colors mb-2 capitalize" translate="no">{dist.name.toLowerCase()}</h3>
+                  <h3 className="text-lg font-bold text-white group-hover:text-orange-400 transition-colors mb-2 capitalize" translate="no">{dist.name?.toLowerCase()}</h3>
                   <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-3 py-1 rounded-full text-xs font-bold tracking-wide mt-auto">{dist.count} Offices</span>
                 </div>
               ))}
