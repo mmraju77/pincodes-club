@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 
-// Safely formatted popular banks for robust database matching
 const POPULAR_BANKS = [
   "STATE BANK OF INDIA", "HDFC BANK", "ICICI BANK", "PUNJAB NATIONAL BANK",
   "BANK OF BARODA", "AXIS BANK", "CANARA BANK", "UNION BANK OF INDIA",
@@ -33,19 +32,18 @@ export default function IfscDirectoryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 50;
 
+  // Ultra-fast debounce (200ms) for blink-of-an-eye loading
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearchQuery(inputValue);
-    }, 400); 
+    }, 200); 
     return () => clearTimeout(timer);
   }, [inputValue]);
 
-  // Fetch States for a specific Bank
   useEffect(() => {
     if (selectedBank && !selectedState && !searchQuery) {
       const fetchStates = async () => {
         setIsLoading(true);
-        // Using ilike to ensure we catch variations like "ICICI BANK LIMITED"
         const { data } = await supabase.from('ifsc_codes').select('STATE').ilike('BANK', `%${selectedBank}%`);
         
         if (data && data.length > 0) {
@@ -65,7 +63,6 @@ export default function IfscDirectoryPage() {
     }
   }, [selectedBank, selectedState, searchQuery]);
 
-  // Fetch Districts for a specific Bank and State
   useEffect(() => {
     if (selectedBank && selectedState && !selectedDistrict && !searchQuery) {
       const fetchDistricts = async () => {
@@ -89,7 +86,6 @@ export default function IfscDirectoryPage() {
     }
   }, [selectedBank, selectedState, selectedDistrict, searchQuery]);
 
-  // Fetch Main Results
   useEffect(() => {
     const fetchMainData = async () => {
       if (!searchQuery && !selectedDistrict) {
@@ -103,35 +99,63 @@ export default function IfscDirectoryPage() {
 
       let q = supabase.from('ifsc_codes').select('*', { count: 'exact' });
 
-      // Apply context filters if user is drilling down through cards
-      if (selectedBank && !searchQuery) q = q.ilike('BANK', `%${selectedBank}%`);
-      if (selectedState && !searchQuery) q = q.ilike('STATE', `%${selectedState}%`);
-      if (selectedDistrict && !searchQuery) q = q.ilike('DISTRICT', `%${selectedDistrict}%`);
+      // Preserving card context during search
+      if (selectedBank) q = q.ilike('BANK', `%${selectedBank}%`);
+      if (selectedState) q = q.ilike('STATE', `%${selectedState}%`);
+      if (selectedDistrict) q = q.ilike('DISTRICT', `%${selectedDistrict}%`);
 
       let qText = searchQuery.trim().toLowerCase();
 
-      // Dictionary for bank abbreviations
-      const abbreviations: {[key: string]: string} = {
-        'sbi': 'state bank',
-        'pnb': 'punjab national',
-        'boi': 'bank of india',
-        'bob': 'bank of baroda',
-        'cbi': 'central bank',
-        'iob': 'indian overseas',
-        'bom': 'bank of maharashtra',
-        'ubi': 'union bank',
-        'hfc': 'hdfc' 
+      // Strict bank mapping to prevent false matches
+      const exactBanks: Record<string, string> = {
+        'sbi': 'STATE BANK OF INDIA',
+        'state bank of india': 'STATE BANK OF INDIA',
+        'hdfc': 'HDFC BANK',
+        'icici': 'ICICI BANK',
+        'pnb': 'PUNJAB NATIONAL BANK',
+        'bob': 'BANK OF BARODA',
+        'boi': 'BANK OF INDIA',
+        'cbi': 'CENTRAL BANK OF INDIA',
+        'iob': 'INDIAN OVERSEAS BANK',
+        'bom': 'BANK OF MAHARASHTRA',
+        'ubi': 'UNION BANK OF INDIA',
+        'axis': 'AXIS BANK',
+        'canara': 'CANARA BANK',
+        'kotak': 'KOTAK MAHINDRA BANK',
+        'yes': 'YES BANK',
+        'idfc': 'IDFC FIRST BANK',
+        'indusind': 'INDUSIND BANK',
+        'bandhan': 'BANDHAN BANK',
+        'federal': 'FEDERAL BANK',
+        'uco': 'UCO BANK',
+        'idbi': 'IDBI BANK',
+        'indian bank': 'INDIAN BANK',
+        'south indian': 'SOUTH INDIAN BANK'
       };
 
-      Object.keys(abbreviations).forEach(abbr => {
-        const regex = new RegExp(`\\b${abbr}\\b`, 'g');
-        qText = qText.replace(regex, abbreviations[abbr]);
-      });
+      const bankKeys = Object.keys(exactBanks).sort((a, b) => b.length - a.length);
+      let recognizedBank = '';
 
+      for (const key of bankKeys) {
+        const regex = new RegExp(`\\b${key}\\b`, 'i');
+        if (regex.test(qText)) {
+          recognizedBank = exactBanks[key];
+          // Remove the matched bank name from the search string
+          qText = qText.replace(regex, '').replace(/\s+/g, ' ').trim();
+          break;
+        }
+      }
+
+      // If a bank is identified in the query, strictly lock the search to that bank
+      if (recognizedBank) {
+        q = q.ilike('BANK', `%${recognizedBank}%`);
+      }
+
+      // Remaining query words are searched ONLY in highly relevant, indexed columns (ignoring long addresses for speed)
       if (qText) {
         const words = qText.split(/\s+/).filter(w => w.length > 0);
         words.forEach(word => {
-           q = q.or(`IFSC.ilike.%${word}%,BANK.ilike.%${word}%,BRANCH.ilike.%${word}%,CENTRE.ilike.%${word}%,DISTRICT.ilike.%${word}%,CITY.ilike.%${word}%,ADDRESS.ilike.%${word}%`);
+           q = q.or(`IFSC.ilike.%${word}%,BRANCH.ilike.%${word}%,CENTRE.ilike.%${word}%,DISTRICT.ilike.%${word}%,CITY.ilike.%${word}%`);
         });
       }
 
