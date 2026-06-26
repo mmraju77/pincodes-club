@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 
-// Safe, hardcoded states for instant loading (0 seconds)
 const INDIAN_STATES = [
   "ANDAMAN AND NICOBAR ISLANDS", "ANDHRA PRADESH", "ARUNACHAL PRADESH", "ASSAM", "BIHAR",
   "CHANDIGARH", "CHHATTISGARH", "DADRA AND NAGAR HAVELI AND DAMAN AND DIU", "DELHI", "GOA",
@@ -29,6 +28,7 @@ export default function IfscDirectoryPage() {
   
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [dbError, setDbError] = useState<string | null>(null);
   
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
   const [selectedState, setSelectedState] = useState<string | null>(null);
@@ -40,7 +40,6 @@ export default function IfscDirectoryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 50;
 
-  // Ultra-fast debounce for instant search
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearchQuery(inputValue);
@@ -48,19 +47,24 @@ export default function IfscDirectoryPage() {
     return () => clearTimeout(timer);
   }, [inputValue]);
 
-  // Fetch unique districts instantly
+  // Fetch unique districts safely using strict lowercase column names
   useEffect(() => {
     if (selectedBank && selectedState && !selectedDistrict && !searchQuery) {
       const fetchDistricts = async () => {
         setIsLoading(true);
-        const { data } = await supabase.from('ifsc_codes')
-          .select('DISTRICT')
-          .ilike('BANK', `%${selectedBank}%`)
-          .ilike('STATE', `%${selectedState}%`)
+        setDbError(null);
+        
+        const { data, error } = await supabase.from('ifsc_codes')
+          .select('district')
+          .ilike('bank', `%${selectedBank}%`)
+          .ilike('state', `%${selectedState}%`)
           .limit(5000); 
         
-        if (data && data.length > 0) {
-          const uniqueDists = Array.from(new Set(data.map((r: any) => r.DISTRICT))).filter(Boolean).sort();
+        if (error) {
+          setDbError(`Database Error: ${error.message}`);
+          setDistrictSummary([]);
+        } else if (data && data.length > 0) {
+          const uniqueDists = Array.from(new Set(data.map((r: any) => r.district))).filter(Boolean).sort();
           setDistrictSummary(uniqueDists.map(d => ({ name: d as string })));
         } else {
           setDistrictSummary([]);
@@ -80,19 +84,19 @@ export default function IfscDirectoryPage() {
         return;
       }
       setIsLoading(true);
+      setDbError(null);
+
       const start = (currentPage - 1) * ITEMS_PER_PAGE;
       const end = start + ITEMS_PER_PAGE - 1;
 
       let q = supabase.from('ifsc_codes').select('*', { count: 'exact' });
 
-      // Apply card filters
-      if (selectedBank && !searchQuery) q = q.ilike('BANK', `%${selectedBank}%`);
-      if (selectedState && !searchQuery) q = q.ilike('STATE', `%${selectedState}%`);
-      if (selectedDistrict && !searchQuery) q = q.ilike('DISTRICT', `%${selectedDistrict}%`);
+      if (selectedBank && !searchQuery) q = q.ilike('bank', `%${selectedBank}%`);
+      if (selectedState && !searchQuery) q = q.ilike('state', `%${selectedState}%`);
+      if (selectedDistrict && !searchQuery) q = q.ilike('district', `%${selectedDistrict}%`);
 
       let qText = searchQuery.trim().toLowerCase();
 
-      // Strict bank acronym lock to prevent false matches
       const exactBanks: Record<string, string> = {
         'sbi': 'STATE BANK OF INDIA',
         'state bank of india': 'STATE BANK OF INDIA',
@@ -132,20 +136,26 @@ export default function IfscDirectoryPage() {
       }
 
       if (recognizedBank) {
-        q = q.ilike('BANK', `%${recognizedBank}%`);
+        q = q.ilike('bank', `%${recognizedBank}%`);
       }
 
       if (qText) {
         const words = qText.split(/\s+/).filter(w => w.length > 0);
         words.forEach(word => {
-           // Searching safely in core columns
-           q = q.or(`IFSC.ilike.%${word}%,BRANCH.ilike.%${word}%,CENTRE.ilike.%${word}%,DISTRICT.ilike.%${word}%,ADDRESS.ilike.%${word}%`);
+           q = q.or(`ifsc.ilike.%${word}%,branch.ilike.%${word}%,centre.ilike.%${word}%,district.ilike.%${word}%,address.ilike.%${word}%`);
         });
       }
 
       const { data, count, error } = await q.range(start, end);
       
-      if (data) { setResultsData(data); setTotalResults(count || 0); }
+      if (error) {
+        setDbError(`Database Error: ${error.message}`);
+        setResultsData([]);
+        setTotalResults(0);
+      } else if (data) { 
+        setResultsData(data); 
+        setTotalResults(count || 0); 
+      }
       setIsLoading(false);
     };
     fetchMainData();
@@ -223,7 +233,7 @@ export default function IfscDirectoryPage() {
         )}
         {selectedDistrict && selectedState && selectedBank && (
           <button onClick={() => { setSelectedDistrict(null); setInputValue(''); setSearchQuery(''); }} className="flex items-center gap-2 text-blue-400 hover:text-white transition-colors bg-blue-500/10 px-4 py-2 rounded-lg border border-blue-500/20 text-sm font-medium">
-            ← All Districts in <span className="capitalize" translate="no">{selectedState.toLowerCase()}</span>
+            ← All Districts in <span className="capitalize" translate="no">{selectedState?.toLowerCase()}</span>
           </button>
         )}
       </div>
@@ -235,6 +245,12 @@ export default function IfscDirectoryPage() {
         </div>
       ) : (
         <>
+          {dbError && (
+            <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 mb-6 text-center">
+              <p className="text-red-400 font-medium">{dbError}</p>
+            </div>
+          )}
+
           {showBankList && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {POPULAR_BANKS.map((bankName, index) => (
@@ -270,9 +286,11 @@ export default function IfscDirectoryPage() {
                   </div>
                 ))
               ) : (
-                <div className="col-span-full py-12 text-center">
-                  <p className="text-slate-400 text-lg">No {selectedBank} branches found in {selectedState}.</p>
-                </div>
+                !dbError && (
+                  <div className="col-span-full py-12 text-center">
+                    <p className="text-slate-400 text-lg">No {selectedBank} branches found in {selectedState}.</p>
+                  </div>
+                )
               )}
             </div>
           )}
@@ -281,16 +299,15 @@ export default function IfscDirectoryPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {resultsData.length > 0 ? (
                 resultsData.map((row: any, index: number) => {
-                  // Mapped to safely handle both variations of new columns
-                  const bankName = row.BANK || row['BANK NAME'] || 'N/A';
-                  const ifscCode = row.IFSC || 'N/A';
-                  const branchName = row.BRANCH || 'N/A';
-                  const distName = row.DISTRICT || 'N/A';
-                  const stateName = row.STATE || 'N/A';
-                  const city = row.CENTRE || row.CITY || 'N/A';
-                  const address = row.ADDRESS || 'N/A';
-                  const micrCode = row.MICR || 'Not Available';
-                  const contact = row.PHONE || row.CONTACT || 'Not Available'; // Uses PHONE if available
+                  const bankName = row.bank || row.bank_name || 'N/A';
+                  const ifscCode = row.ifsc || 'N/A';
+                  const branchName = row.branch || 'N/A';
+                  const distName = row.district || 'N/A';
+                  const stateName = row.state || 'N/A';
+                  const city = row.centre || row.city || 'N/A';
+                  const address = row.address || 'N/A';
+                  const micrCode = row.micr || 'Not Available';
+                  const contact = row.contact || row.phone || 'Not Available'; 
 
                   return (
                     <div key={index} className="bg-slate-900/80 p-6 rounded-2xl border border-slate-700 hover:border-blue-500/50 transition-all flex flex-col relative shadow-xl group hover:scale-[1.01]">
@@ -318,7 +335,11 @@ export default function IfscDirectoryPage() {
                   )
                 })
               ) : (
-                <div className="col-span-full py-12 text-center"><p className="text-slate-400 text-lg">No branches found matching your search.</p></div>
+                !dbError && (
+                  <div className="col-span-full py-12 text-center">
+                    <p className="text-slate-400 text-lg">No branches found matching your search.</p>
+                  </div>
+                )
               )}
             </div>
           )}
