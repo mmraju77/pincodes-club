@@ -64,7 +64,8 @@ export default function IfscDirectoryPage() {
           setDbError(`Database Error: ${error.message}`);
           setDistrictSummary([]);
         } else if (data && data.length > 0) {
-          const uniqueDists = Array.from(new Set(data.map((r: any) => r.DISTRICT))).filter(Boolean).sort();
+          // Robust mapping for both upper and lower case DB scenarios
+          const uniqueDists = Array.from(new Set(data.map((r: any) => r.DISTRICT || r.district))).filter(Boolean).sort();
           setDistrictSummary(uniqueDists.map(d => ({ name: d as string })));
         } else {
           setDistrictSummary([]);
@@ -301,15 +302,16 @@ export default function IfscDirectoryPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {resultsData.length > 0 ? (
                   resultsData.map((row: any, index: number) => {
-                    const bankName = row.BANK || row.BANK_NAME || 'N/A';
-                    const ifscCode = row.IFSC || 'N/A';
-                    const branchName = row.BRANCH || 'N/A';
-                    const distName = row.DISTRICT || 'N/A';
-                    const stateName = row.STATE || 'N/A';
-                    const city = row.CENTRE || row.CITY || 'N/A';
-                    const address = row.ADDRESS || 'N/A';
-                    const micrCode = row.MICR || 'Not Available';
-                    const contact = row.CONTACT || row.PHONE || 'Not Available'; 
+                    // Safe mapping supporting both uppercase and lowercase DB column sets
+                    const bankName = row.BANK || row.bank || row.BANK_NAME || row.bank_name || 'N/A';
+                    const ifscCode = row.IFSC || row.ifsc || 'N/A';
+                    const branchName = row.BRANCH || row.branch || 'N/A';
+                    const distName = row.DISTRICT || row.district || 'N/A';
+                    const stateName = row.STATE || row.state || 'N/A';
+                    const city = row.CENTRE || row.centre || row.CITY || row.city || 'N/A';
+                    const address = row.ADDRESS || row.address || 'N/A';
+                    const micrCode = row.MICR || row.micr || 'Not Available';
+                    const contact = row.CONTACT || row.contact || row.PHONE || row.phone || 'Not Available'; 
 
                     return (
                       <div key={index} className="bg-slate-900/80 p-6 rounded-2xl border border-slate-700 hover:border-blue-500/50 transition-all flex flex-col relative shadow-xl group hover:scale-[1.01]">
@@ -350,7 +352,7 @@ export default function IfscDirectoryPage() {
       </div>
 
       <div className="mt-auto pt-12 pb-4 text-center border-t border-slate-800/50">
-        <p className="text-slate-500 text-xs font-medium">© 2026 Pincode Club. All rights reserved. Global Operations. | <span className="text-blue-500 font-bold">App Version: 2.0 (Live)</span></p>
+        <p className="text-slate-500 text-xs font-medium">© 2026 Pincode Club. All rights reserved. Global Operations. | <span className="text-blue-500 font-bold">App Version: 3.0 (Final Fix)</span></p>
       </div>
     </div>
   );
