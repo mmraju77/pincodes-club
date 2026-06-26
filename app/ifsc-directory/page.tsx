@@ -47,7 +47,7 @@ export default function IfscDirectoryPage() {
     return () => clearTimeout(timer);
   }, [inputValue]);
 
-  // Fetch unique districts matching uppercase columns
+  // Fetch unique districts safely with strictly lowercase columns
   useEffect(() => {
     if (selectedBank && selectedState && !selectedDistrict && !searchQuery) {
       const fetchDistricts = async () => {
@@ -55,17 +55,16 @@ export default function IfscDirectoryPage() {
         setDbError(null);
         
         const { data, error } = await supabase.from('ifsc_codes')
-          .select('DISTRICT')
-          .ilike('BANK', `%${selectedBank}%`)
-          .ilike('STATE', `%${selectedState}%`)
+          .select('district')
+          .ilike('bank', `%${selectedBank}%`)
+          .ilike('state', `%${selectedState}%`)
           .limit(5000); 
         
         if (error) {
           setDbError(`Database Error: ${error.message}`);
           setDistrictSummary([]);
         } else if (data && data.length > 0) {
-          // Robust mapping for both upper and lower case DB scenarios
-          const uniqueDists = Array.from(new Set(data.map((r: any) => r.DISTRICT || r.district))).filter(Boolean).sort();
+          const uniqueDists = Array.from(new Set(data.map((r: any) => r.district))).filter(Boolean).sort();
           setDistrictSummary(uniqueDists.map(d => ({ name: d as string })));
         } else {
           setDistrictSummary([]);
@@ -76,7 +75,7 @@ export default function IfscDirectoryPage() {
     }
   }, [selectedBank, selectedState, selectedDistrict, searchQuery]);
 
-  // Fetch Main Results matching uppercase columns
+  // Fetch Main Results
   useEffect(() => {
     const fetchMainData = async () => {
       if (!searchQuery && !selectedDistrict) {
@@ -92,9 +91,9 @@ export default function IfscDirectoryPage() {
 
       let q = supabase.from('ifsc_codes').select('*', { count: 'exact' });
 
-      if (selectedBank && !searchQuery) q = q.ilike('BANK', `%${selectedBank}%`);
-      if (selectedState && !searchQuery) q = q.ilike('STATE', `%${selectedState}%`);
-      if (selectedDistrict && !searchQuery) q = q.ilike('DISTRICT', `%${selectedDistrict}%`);
+      if (selectedBank && !searchQuery) q = q.ilike('bank', `%${selectedBank}%`);
+      if (selectedState && !searchQuery) q = q.ilike('state', `%${selectedState}%`);
+      if (selectedDistrict && !searchQuery) q = q.ilike('district', `%${selectedDistrict}%`);
 
       let qText = searchQuery.trim().toLowerCase();
 
@@ -137,13 +136,13 @@ export default function IfscDirectoryPage() {
       }
 
       if (recognizedBank) {
-        q = q.ilike('BANK', `%${recognizedBank}%`);
+        q = q.ilike('bank', `%${recognizedBank}%`);
       }
 
       if (qText) {
         const words = qText.split(/\s+/).filter(w => w.length > 0);
         words.forEach(word => {
-           q = q.or(`IFSC.ilike.%${word}%,BRANCH.ilike.%${word}%,CENTRE.ilike.%${word}%,DISTRICT.ilike.%${word}%,ADDRESS.ilike.%${word}%`);
+           q = q.or(`ifsc.ilike.%${word}%,branch.ilike.%${word}%,centre.ilike.%${word}%,district.ilike.%${word}%,address.ilike.%${word}%`);
         });
       }
 
@@ -302,16 +301,15 @@ export default function IfscDirectoryPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {resultsData.length > 0 ? (
                   resultsData.map((row: any, index: number) => {
-                    // Safe mapping supporting both uppercase and lowercase DB column sets
-                    const bankName = row.BANK || row.bank || row.BANK_NAME || row.bank_name || 'N/A';
-                    const ifscCode = row.IFSC || row.ifsc || 'N/A';
-                    const branchName = row.BRANCH || row.branch || 'N/A';
-                    const distName = row.DISTRICT || row.district || 'N/A';
-                    const stateName = row.STATE || row.state || 'N/A';
-                    const city = row.CENTRE || row.centre || row.CITY || row.city || 'N/A';
-                    const address = row.ADDRESS || row.address || 'N/A';
-                    const micrCode = row.MICR || row.micr || 'Not Available';
-                    const contact = row.CONTACT || row.contact || row.PHONE || row.phone || 'Not Available'; 
+                    const bankName = row.bank || 'N/A';
+                    const ifscCode = row.ifsc || 'N/A';
+                    const branchName = row.branch || 'N/A';
+                    const distName = row.district || 'N/A';
+                    const stateName = row.state || 'N/A';
+                    const city = row.centre || row.city || 'N/A';
+                    const address = row.address || 'N/A';
+                    const micrCode = row.micr || 'Not Available';
+                    const contact = row.contact || row.phone || 'Not Available'; 
 
                     return (
                       <div key={index} className="bg-slate-900/80 p-6 rounded-2xl border border-slate-700 hover:border-blue-500/50 transition-all flex flex-col relative shadow-xl group hover:scale-[1.01]">
@@ -352,7 +350,7 @@ export default function IfscDirectoryPage() {
       </div>
 
       <div className="mt-auto pt-12 pb-4 text-center border-t border-slate-800/50">
-        <p className="text-slate-500 text-xs font-medium">© 2026 Pincode Club. All rights reserved. Global Operations. | <span className="text-blue-500 font-bold">App Version: 3.0 (Final Fix)</span></p>
+        <p className="text-slate-500 text-xs font-medium">© 2026 Pincode Club. All rights reserved. Global Operations. | <span className="text-emerald-400 font-bold">App Version: 4.0 (Ultimate)</span></p>
       </div>
     </div>
   );
