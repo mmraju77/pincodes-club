@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 
-// Safe, hardcoded states for instant loading
+// Safe, hardcoded states for instant loading (0 seconds)
 const INDIAN_STATES = [
   "ANDAMAN AND NICOBAR ISLANDS", "ANDHRA PRADESH", "ARUNACHAL PRADESH", "ASSAM", "BIHAR",
   "CHANDIGARH", "CHHATTISGARH", "DADRA AND NAGAR HAVELI AND DAMAN AND DIU", "DELHI", "GOA",
@@ -23,33 +23,6 @@ const POPULAR_BANKS = [
   "FEDERAL BANK", "SOUTH INDIAN BANK", "KARNATAKA BANK", "KARUR VYSYA BANK"
 ];
 
-// --- SMART FILTER DICTIONARY ---
-// This maps misspelled or incorrectly grouped districts to their correct modern State.
-// All keys must be UPPERCASE.
-const DISTRICT_TO_STATE_FIX: Record<string, string> = {
-  // Telangana Fixes (Often found in AP)
-  'ADILABAD': 'TELANGANA', 'BHADRADRI KOTHAGUDEM': 'TELANGANA', 'HYDERABAD': 'TELANGANA',
-  'JAGTIAL': 'TELANGANA', 'JANGAON': 'TELANGANA', 'JAYASHANKAR BHUPALPALLY': 'TELANGANA',
-  'JOGULAMBA GADWAL': 'TELANGANA', 'KAMAREDDY': 'TELANGANA', 'KARIMNAGAR': 'TELANGANA',
-  'KHAMMAM': 'TELANGANA', 'KOMARAM BHEEM ASIFABAD': 'TELANGANA', 'MAHABUBABAD': 'TELANGANA',
-  'MAHABUBNAGAR': 'TELANGANA', 'MAHBUBNAGAR': 'TELANGANA', 'MAHABOOBNAGAR': 'TELANGANA',
-  'MANCHERIAL': 'TELANGANA', 'MEDAK': 'TELANGANA', 'MEDCHAL MALKAJGIRI': 'TELANGANA',
-  'MULUGU': 'TELANGANA', 'NAGARKURNOOL': 'TELANGANA', 'NALGONDA': 'TELANGANA',
-  'NARAYANPET': 'TELANGANA', 'NIRMAL': 'TELANGANA', 'NIZAMABAD': 'TELANGANA',
-  'PEDDAPALLI': 'TELANGANA', 'RAJANNA SIRCILLA': 'TELANGANA', 'RANGA REDDY': 'TELANGANA',
-  'RANGAREDDY': 'TELANGANA', 'RANGAREDDI': 'TELANGANA', 'SANGAREDDY': 'TELANGANA',
-  'SECUNDERABAD': 'TELANGANA', 'SIDDIPET': 'TELANGANA', 'SURYAPET': 'TELANGANA',
-  'VIKARABAD': 'TELANGANA', 'WANAPARTHY': 'TELANGANA', 'WARANGAL': 'TELANGANA',
-  'WARANGAL RURAL': 'TELANGANA', 'WARANGAL URBAN': 'TELANGANA', 'YADADRI BHUVANAGIRI': 'TELANGANA',
-  'HANUMAKONDA': 'TELANGANA', 'BHADRADRI': 'TELANGANA',
-
-  // Ladakh Fixes (Often found in J&K)
-  'KARGIL': 'LADAKH', 'LEH': 'LADAKH', 'LEH LADAKH': 'LADAKH', 'LEH-LADAKH': 'LADAKH',
-
-  // AP Spellings
-  'CUDDAPAH': 'ANDHRA PRADESH', 'YSR DISTRICT': 'ANDHRA PRADESH', 'NELLORE': 'ANDHRA PRADESH'
-};
-
 export default function IfscDirectoryPage() {
   const [inputValue, setInputValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,12 +35,12 @@ export default function IfscDirectoryPage() {
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
   
   const [districtSummary, setDistrictSummary] = useState<any[]>([]);
-  
   const [resultsData, setResultsData] = useState<any[]>([]);
   const [totalResults, setTotalResults] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 50;
 
+  // Ultra-fast debounce for instant search
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearchQuery(inputValue);
@@ -75,43 +48,20 @@ export default function IfscDirectoryPage() {
     return () => clearTimeout(timer);
   }, [inputValue]);
 
-  // Fetch unique districts securely, applying the Smart Filter
+  // Fetch unique districts instantly
   useEffect(() => {
     if (selectedBank && selectedState && !selectedDistrict && !searchQuery) {
       const fetchDistricts = async () => {
         setIsLoading(true);
-        // We fetch a wide net (limit 5000) for the bank, then filter in the browser
         const { data } = await supabase.from('ifsc_codes')
-          .select('DISTRICT, STATE')
+          .select('DISTRICT')
           .ilike('BANK', `%${selectedBank}%`)
-          .limit(10000); 
+          .ilike('STATE', `%${selectedState}%`)
+          .limit(5000); 
         
         if (data && data.length > 0) {
-          const validDistricts = new Set<string>();
-
-          data.forEach((row: any) => {
-            const rawDist = row.DISTRICT ? row.DISTRICT.trim().toUpperCase() : '';
-            const rawState = row.STATE ? row.STATE.trim().toUpperCase() : '';
-            
-            if (!rawDist) return;
-
-            // Check if this district has a hardcoded fix
-            const fixedState = DISTRICT_TO_STATE_FIX[rawDist];
-            
-            // It belongs to the selected state if:
-            // 1. It has a fix AND the fix matches the selected state.
-            // 2. OR it has NO fix, but its original DB state matches the selected state.
-            if (fixedState) {
-                if (fixedState === selectedState.toUpperCase()) {
-                    validDistricts.add(rawDist);
-                }
-            } else if (rawState.includes(selectedState.toUpperCase())) {
-                validDistricts.add(rawDist);
-            }
-          });
-
-          const sortedDists = Array.from(validDistricts).sort();
-          setDistrictSummary(sortedDists.map(d => ({ name: d })));
+          const uniqueDists = Array.from(new Set(data.map((r: any) => r.DISTRICT))).filter(Boolean).sort();
+          setDistrictSummary(uniqueDists.map(d => ({ name: d as string })));
         } else {
           setDistrictSummary([]);
         }
@@ -137,13 +87,8 @@ export default function IfscDirectoryPage() {
 
       // Apply card filters
       if (selectedBank && !searchQuery) q = q.ilike('BANK', `%${selectedBank}%`);
-      
-      // If we are drilling down to a District, we ONLY search by that District name.
-      // We don't filter by State in the DB query, because the DB might have the wrong State (e.g., AP instead of TG).
-      // The frontend Smart Filter already ensured this District belongs to the chosen State.
-      if (selectedDistrict && !searchQuery) {
-        q = q.ilike('DISTRICT', `%${selectedDistrict}%`);
-      }
+      if (selectedState && !searchQuery) q = q.ilike('STATE', `%${selectedState}%`);
+      if (selectedDistrict && !searchQuery) q = q.ilike('DISTRICT', `%${selectedDistrict}%`);
 
       let qText = searchQuery.trim().toLowerCase();
 
@@ -193,24 +138,14 @@ export default function IfscDirectoryPage() {
       if (qText) {
         const words = qText.split(/\s+/).filter(w => w.length > 0);
         words.forEach(word => {
-           q = q.or(`IFSC.ilike.%${word}%,BRANCH.ilike.%${word}%,CENTRE.ilike.%${word}%,DISTRICT.ilike.%${word}%,CITY.ilike.%${word}%`);
+           // Searching safely in core columns
+           q = q.or(`IFSC.ilike.%${word}%,BRANCH.ilike.%${word}%,CENTRE.ilike.%${word}%,DISTRICT.ilike.%${word}%,ADDRESS.ilike.%${word}%`);
         });
       }
 
       const { data, count, error } = await q.range(start, end);
       
-      if (data) { 
-        // Apply display fix for Results cards (Shows correct state even if DB is wrong)
-        const fixedData = data.map((row:any) => {
-            const rawDist = row.DISTRICT ? row.DISTRICT.trim().toUpperCase() : '';
-            if(DISTRICT_TO_STATE_FIX[rawDist]) {
-                row.STATE = DISTRICT_TO_STATE_FIX[rawDist];
-            }
-            return row;
-        });
-        setResultsData(fixedData); 
-        setTotalResults(count || 0); 
-      }
+      if (data) { setResultsData(data); setTotalResults(count || 0); }
       setIsLoading(false);
     };
     fetchMainData();
@@ -346,7 +281,8 @@ export default function IfscDirectoryPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {resultsData.length > 0 ? (
                 resultsData.map((row: any, index: number) => {
-                  const bankName = row.BANK || 'N/A';
+                  // Mapped to safely handle both variations of new columns
+                  const bankName = row.BANK || row['BANK NAME'] || 'N/A';
                   const ifscCode = row.IFSC || 'N/A';
                   const branchName = row.BRANCH || 'N/A';
                   const distName = row.DISTRICT || 'N/A';
@@ -354,7 +290,7 @@ export default function IfscDirectoryPage() {
                   const city = row.CENTRE || row.CITY || 'N/A';
                   const address = row.ADDRESS || 'N/A';
                   const micrCode = row.MICR || 'Not Available';
-                  const contact = row.CONTACT || 'Not Available';
+                  const contact = row.PHONE || row.CONTACT || 'Not Available'; // Uses PHONE if available
 
                   return (
                     <div key={index} className="bg-slate-900/80 p-6 rounded-2xl border border-slate-700 hover:border-blue-500/50 transition-all flex flex-col relative shadow-xl group hover:scale-[1.01]">
