@@ -7,6 +7,7 @@ type Props = {
 };
 
 // 1. Programmatic SEO: Dynamic Metadata Generation
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const resolvedParams = await params;
   const rawBankName = decodeURIComponent(resolvedParams.bank).replace(/-/g, ' ');
