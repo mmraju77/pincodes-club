@@ -2,9 +2,14 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { supabase } from '../../../lib/supabase';
 
+type Props = {
+  params: Promise<{ bank: string }>;
+};
+
 // 1. Programmatic SEO: Dynamic Metadata Generation
-export async function generateMetadata({ params }: { params: { bank: string } }): Promise<Metadata> {
-  const rawBankName = decodeURIComponent(params.bank).replace(/-/g, ' ');
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const resolvedParams = await params;
+  const rawBankName = decodeURIComponent(resolvedParams.bank).replace(/-/g, ' ');
   const bankName = rawBankName.toUpperCase();
 
   return {
@@ -12,14 +17,15 @@ export async function generateMetadata({ params }: { params: { bank: string } })
     description: `Find all branches, IFSC codes, MICR codes, and addresses for ${bankName} across India. Accurate and updated banking directory.`,
     keywords: `${bankName} ifsc code, ${bankName} branches, ${bankName} customer care, indian banks`,
     alternates: {
-      canonical: `https://pincodes-club.com/ifsc/${params.bank}`,
+      canonical: `https://pincodes-club.com/ifsc/${resolvedParams.bank}`,
     }
   };
 }
 
 // 2. Server Component for insanely fast loading and Google Indexing
-export default async function BankSeoPage({ params }: { params: { bank: string } }) {
-  const rawBankName = decodeURIComponent(params.bank).replace(/-/g, ' ');
+export default async function BankSeoPage({ params }: Props) {
+  const resolvedParams = await params;
+  const rawBankName = decodeURIComponent(resolvedParams.bank).replace(/-/g, ' ');
   const bankName = rawBankName.toUpperCase();
 
   // Fetch states for this specific bank directly on the server
@@ -60,7 +66,7 @@ export default async function BankSeoPage({ params }: { params: { bank: string }
             
             return (
               <Link 
-                href={`/ifsc/${params.bank}/${stateSlug}`} 
+                href={`/ifsc/${resolvedParams.bank}/${stateSlug}`} 
                 key={index}
                 className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 flex flex-col items-center text-center shadow-sm group hover:border-blue-500/50 hover:bg-slate-800/80 transition-all cursor-pointer"
               >
