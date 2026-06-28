@@ -22,6 +22,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 // 2. SERVER COMPONENT
+
 export default async function CityStdCodePage({ params }: Props) {
   const resolvedParams = await params;
   const urlCityName = decodeURIComponent(resolvedParams.city).replace(/-/g, ' ');
