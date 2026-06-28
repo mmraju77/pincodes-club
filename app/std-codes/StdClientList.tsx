@@ -6,10 +6,11 @@ import Link from 'next/link';
 export default function StdClientList({ stdData }: { stdData: any[] }) {
   const [searchTerm, setSearchTerm] = useState('');
 
-  // 🔍 Real-time Search Filter
+  // 🔍 BULLETPROOF SEARCH: Ignores extra spaces and case sensitivity
   const filteredData = stdData.filter((item) => {
-    const city = item.city || '';
-    return city.toLowerCase().includes(searchTerm.toLowerCase());
+    const city = String(item.city || '').trim().toLowerCase();
+    const search = searchTerm.trim().toLowerCase();
+    return city.includes(search);
   });
 
   return (
@@ -21,7 +22,7 @@ export default function StdClientList({ stdData }: { stdData: any[] }) {
         </div>
         <input
           type="text"
-          placeholder="Search for a city (e.g., Hyderabad, Mumbai)..."
+          placeholder="Search for a city (e.g., Hyderabad, Agra)..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full bg-slate-900/80 border border-slate-700 text-white rounded-full py-4 pl-14 pr-6 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 transition-all placeholder-slate-500 shadow-xl text-lg"
@@ -32,7 +33,7 @@ export default function StdClientList({ stdData }: { stdData: any[] }) {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {filteredData.length > 0 ? (
           filteredData.map((item: any, index: number) => {
-            const cityName = item.city;
+            const cityName = String(item.city || '').trim();
             if (!cityName) return null;
             const citySlug = cityName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
             
@@ -42,7 +43,7 @@ export default function StdClientList({ stdData }: { stdData: any[] }) {
                 key={index}
                 className="bg-slate-900/50 p-4 rounded-xl border border-slate-800 flex items-center justify-between shadow-sm group hover:border-purple-500/50 hover:bg-slate-800/80 transition-all cursor-pointer"
               >
-                <span className="text-sm font-bold text-white group-hover:text-purple-400 transition-colors capitalize truncate pr-2">
+                <span className="text-sm font-bold text-white group-hover:text-purple-400 transition-colors capitalize truncate pr-2" title={cityName}>
                   {cityName.toLowerCase()}
                 </span>
                 <span className="text-xs text-slate-500 group-hover:text-slate-300">➔</span>
