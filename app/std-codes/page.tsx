@@ -2,6 +2,10 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 
+// 🚀 CACHE BUSTER: Tells Next.js to always fetch fresh data from Supabase
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export const metadata: Metadata = {
   title: 'All India STD Codes Directory | Pincode Club',
   description: 'Find official STD codes for all cities and towns across India. Complete telecommunication routing directory.',
@@ -9,11 +13,12 @@ export const metadata: Metadata = {
 };
 
 export default async function StdDirectoryPage() {
-  // Fetch all cities and STD codes
+  // Fetch cities explicitly with a large limit to accommodate 2611 rows
   const { data: stdData, error } = await supabase
     .from('std_codes')
-    .select('*')
-    .order('CITY', { ascending: true });
+    .select('city') // Optimized: Fetching only the city name to reduce payload size
+    .order('city', { ascending: true })
+    .limit(4000);
 
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 space-y-8 flex flex-col min-h-screen">
@@ -35,7 +40,7 @@ export default async function StdDirectoryPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {stdData && stdData.length > 0 ? (
           stdData.map((item: any, index: number) => {
-            const cityName = item.CITY || item.city;
+            const cityName = item.city;
             if (!cityName) return null;
             const citySlug = cityName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
             
@@ -53,7 +58,11 @@ export default async function StdDirectoryPage() {
             )
           })
         ) : (
-          <p className="text-slate-400 col-span-full">No STD codes found or data is loading.</p>
+          <div className="col-span-full p-8 border border-red-500/30 bg-red-500/10 rounded-xl text-center">
+            <p className="text-red-400 font-semibold">
+              {error ? `Database Error: ${error.message}` : 'Still loading or no data available. Please refresh.'}
+            </p>
+          </div>
         )}
       </div>
     </div>
