@@ -1,8 +1,8 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
+import StdClientList from './StdClientList'; // 👈 Importing the Search component
 
-// 🚀 CACHE BUSTER: Tells Next.js to always fetch fresh data from Supabase
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -13,10 +13,10 @@ export const metadata: Metadata = {
 };
 
 export default async function StdDirectoryPage() {
-  // Fetch cities explicitly with a large limit to accommodate 2611 rows
+  // Fetch data on the server
   const { data: stdData, error } = await supabase
     .from('std_codes')
-    .select('city') // Optimized: Fetching only the city name to reduce payload size
+    .select('city')
     .order('city', { ascending: true })
     .limit(4000);
 
@@ -33,38 +33,18 @@ export default async function StdDirectoryPage() {
           All India STD Codes
         </h1>
         <p className="text-slate-300 text-lg">
-          Select a city below to find its official telecommunication STD code.
+          Select a city below or use the search bar to find its official telecommunication STD code.
         </p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {stdData && stdData.length > 0 ? (
-          stdData.map((item: any, index: number) => {
-            const cityName = item.city;
-            if (!cityName) return null;
-            const citySlug = cityName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-            
-            return (
-              <Link 
-                href={`/std-codes/${citySlug}`} 
-                key={index}
-                className="bg-slate-900/50 p-4 rounded-xl border border-slate-800 flex items-center justify-between shadow-sm group hover:border-purple-500/50 hover:bg-slate-800/80 transition-all cursor-pointer"
-              >
-                <span className="text-sm font-bold text-white group-hover:text-purple-400 transition-colors capitalize truncate pr-2">
-                  {cityName.toLowerCase()}
-                </span>
-                <span className="text-xs text-slate-500 group-hover:text-slate-300">➔</span>
-              </Link>
-            )
-          })
-        ) : (
-          <div className="col-span-full p-8 border border-red-500/30 bg-red-500/10 rounded-xl text-center">
-            <p className="text-red-400 font-semibold">
-              {error ? `Database Error: ${error.message}` : 'Still loading or no data available. Please refresh.'}
-            </p>
-          </div>
-        )}
-      </div>
+      {/* 🚀 Passing data to our new Search Bar Component */}
+      {error ? (
+        <div className="p-8 border border-red-500/30 bg-red-500/10 rounded-xl text-center">
+          <p className="text-red-400 font-semibold">Database Error: {error.message}</p>
+        </div>
+      ) : (
+        <StdClientList stdData={stdData || []} />
+      )}
     </div>
   );
 }
