@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 
 export const metadata: Metadata = {
+  
   title: 'All India RTO Codes & Vehicle Registration Directory | Pincode Club',
   description: 'Find official RTO vehicle registration codes for all states and union territories in India. Check vehicle passing locations instantly.',
   keywords: 'rto codes india, vehicle registration codes, rto office codes, state rto list, number plate codes',
