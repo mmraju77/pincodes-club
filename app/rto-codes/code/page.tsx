@@ -5,24 +5,19 @@ import { supabase } from '../../../../lib/supabase';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-type Props = {
-  params: Promise<{ regno: string }>;
-};
-
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params }: any): Promise<Metadata> {
   const resolvedParams = await params;
-  const decodedRegno = decodeURIComponent(resolvedParams.regno).toUpperCase();
+  const decodedRegno = decodeURIComponent(resolvedParams.regno || '').toUpperCase();
   return {
     title: `${decodedRegno} RTO Code Details | Pincode Club`,
     description: `Official details for RTO Code ${decodedRegno}. Find vehicle registration state, region, and RTO office details instantly.`,
   };
 }
 
-export default async function RtoDetailsPage({ params }: Props) {
+export default async function RtoDetailsPage({ params }: any) {
   const resolvedParams = await params;
-  const decodedRegno = decodeURIComponent(resolvedParams.regno).trim();
+  const decodedRegno = decodeURIComponent(resolvedParams.regno || '').trim();
 
-  // Smart Search: Uses wildcards (%) to ignore any hidden spaces in the database
   const { data, error } = await supabase
     .from('rto_codes')
     .select('*')
@@ -32,12 +27,10 @@ export default async function RtoDetailsPage({ params }: Props) {
   const rtoData = data?.[0];
 
   if (error || !rtoData) {
-    // Custom RTO Error Page (Overrides the Global Pincode Area Not Found page)
     return (
       <div className="max-w-4xl mx-auto py-24 px-4 text-center min-h-screen">
         <h1 className="text-4xl text-red-400 font-extrabold mb-4">RTO Code Not Found</h1>
         <p className="text-slate-400 text-lg">We couldn't locate data for RTO Code: <span className="font-bold text-white">{decodedRegno}</span></p>
-        <p className="text-slate-500 mt-2">This code might be invalid or not yet updated in our database.</p>
         <Link href="/rto-codes" className="mt-8 inline-block bg-amber-500 hover:bg-amber-400 text-slate-900 px-8 py-3 rounded-full font-bold transition-all shadow-lg">
           Return to Search
         </Link>

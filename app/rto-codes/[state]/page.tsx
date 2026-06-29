@@ -6,23 +6,18 @@ import { notFound } from 'next/navigation';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// 🚀 Next.js 15 Fix for State Page
-type Props = {
-  params: Promise<{ state: string }>;
-};
-
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params }: any): Promise<Metadata> {
   const resolvedParams = await params;
-  const formattedState = resolvedParams.state.replace(/-/g, ' ').toUpperCase();
+  const formattedState = String(resolvedParams.state || '').replace(/-/g, ' ').toUpperCase();
   return {
     title: `${formattedState} RTO Codes Directory | Pincode Club`,
     description: `Complete list of RTO vehicle registration codes for ${formattedState}.`,
   };
 }
 
-export default async function StateRtoPage({ params }: Props) {
+export default async function StateRtoPage({ params }: any) {
   const resolvedParams = await params;
-  const stateQuery = resolvedParams.state.replace(/-/g, ' ');
+  const stateQuery = String(resolvedParams.state || '').replace(/-/g, ' ');
 
   const { data, error } = await supabase
     .from('rto_codes')
@@ -57,7 +52,6 @@ export default async function StateRtoPage({ params }: Props) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {data.map((item: any, index: number) => {
-          // 🚀 Direct link to individual code page
           const codeLink = item.regno ? `/rto-codes/code/${encodeURIComponent(item.regno)}` : '#';
           
           return (
