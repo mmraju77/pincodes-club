@@ -6,7 +6,6 @@ import Link from 'next/link';
 export default function RtoClientList({ rtoData }: { rtoData: any[] }) {
   const [searchTerm, setSearchTerm] = useState('');
 
-  // 🚀 ULTRA-PRECISE SEARCH: Matches only exact RTO Code or specific City Name
   const filteredData = rtoData.filter((item) => {
     const search = searchTerm.trim().toLowerCase();
     if (!search) return true;
@@ -19,7 +18,6 @@ export default function RtoClientList({ rtoData }: { rtoData: any[] }) {
 
   return (
     <div className="w-full space-y-8">
-      {/* 🔍 Premium Search Input */}
       <div className="relative max-w-2xl mx-auto mb-10">
         <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
           <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -33,15 +31,15 @@ export default function RtoClientList({ rtoData }: { rtoData: any[] }) {
         />
       </div>
 
-      {/* 📊 Filtered Output Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {filteredData.length > 0 ? (
           filteredData.map((item: any, index: number) => {
-            const stateSlug = String(item.state || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+            // 🚀 CHANGED LINK: Routes directly to the individual Code Page!
+            const codeLink = `/rto-codes/code/${encodeURIComponent(item.regno)}`;
             
             return (
               <Link 
-                href={`/rto-codes/${stateSlug}`} 
+                href={codeLink} 
                 key={index}
                 className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 flex flex-col shadow-sm group hover:border-purple-500/50 hover:bg-slate-800/80 transition-all cursor-pointer"
               >
