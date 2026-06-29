@@ -52,13 +52,10 @@ export default async function StateRtoPage({ params }: any) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {data.map((item: any, index: number) => {
-          const codeLink = item.regno ? `/rto-codes/code/${encodeURIComponent(item.regno)}` : '#';
-          
           return (
-            <Link 
-              href={codeLink}
+            <div 
               key={index}
-              className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 flex flex-col shadow-sm group hover:border-amber-500/50 hover:bg-slate-800/80 transition-all cursor-pointer"
+              className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 flex flex-col shadow-sm group hover:border-amber-500/50 hover:bg-slate-800/80 transition-all"
             >
               <div className="flex justify-between items-start mb-4">
                 <span className="text-lg font-bold text-white group-hover:text-amber-400 transition-colors line-clamp-2">
@@ -72,7 +69,7 @@ export default async function StateRtoPage({ params }: any) {
                 <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Registration State</p>
                 <p className="text-sm text-amber-500 font-medium">{item.state.toUpperCase()}</p>
               </div>
-            </Link>
+            </div>
           );
         })}
       </div>

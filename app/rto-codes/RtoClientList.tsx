@@ -34,30 +34,25 @@ export default function RtoClientList({ rtoData }: { rtoData: any[] }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {filteredData.length > 0 ? (
           filteredData.map((item: any, index: number) => {
-            // 🚀 CHANGED LINK: Routes directly to the individual Code Page!
-            const codeLink = `/rto-codes/code/${encodeURIComponent(item.regno)}`;
+            const stateSlug = String(item.state || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
             
             return (
-              <Link 
-                href={codeLink} 
+              <div 
                 key={index}
-                className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 flex flex-col shadow-sm group hover:border-purple-500/50 hover:bg-slate-800/80 transition-all cursor-pointer"
+                className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 flex flex-col shadow-sm group hover:border-purple-500/50 hover:bg-slate-800/80 transition-all"
               >
                 <div className="flex justify-between items-start mb-2">
                   <span className="text-xl font-extrabold text-purple-400 group-hover:text-purple-300 transition-colors">
                     {item.regno}
                   </span>
-                  <span className="text-xs text-slate-500 group-hover:text-slate-300 bg-slate-800 px-2 py-1 rounded-md">
-                    ➔
-                  </span>
                 </div>
                 <span className="text-sm font-bold text-white mb-1 truncate" title={item.place}>
                   {item.place}
                 </span>
-                <span className="text-xs text-slate-400 font-medium truncate">
-                  {item.state}
-                </span>
-              </Link>
+                <Link href={`/rto-codes/${stateSlug}`} className="text-xs text-slate-400 font-medium truncate hover:text-blue-400 transition-colors">
+                  {item.state} ➔
+                </Link>
+              </div>
             )
           })
         ) : (
