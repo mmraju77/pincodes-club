@@ -6,17 +6,24 @@ import { notFound } from 'next/navigation';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// 🚀 Dynamic SEO for Google Ranking
-export async function generateMetadata({ params }: { params: { regno: string } }): Promise<Metadata> {
-  const decodedRegno = decodeURIComponent(params.regno).toUpperCase();
+// 🚀 Next.js 15+ Fix: params is now a Promise
+type Props = {
+  params: Promise<{ regno: string }>;
+};
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const resolvedParams = await params;
+  const decodedRegno = decodeURIComponent(resolvedParams.regno).toUpperCase();
   return {
     title: `${decodedRegno} RTO Code Details | Pincode Club`,
     description: `Official details for RTO Code ${decodedRegno}. Find vehicle registration state, region, and RTO office details instantly.`,
   };
 }
 
-export default async function RtoDetailsPage({ params }: { params: { regno: string } }) {
-  const decodedRegno = decodeURIComponent(params.regno);
+export default async function RtoDetailsPage({ params }: Props) {
+  // 🚀 Next.js 15+ Fix: Awaiting the params
+  const resolvedParams = await params;
+  const decodedRegno = decodeURIComponent(resolvedParams.regno);
 
   // Fetch only the specific RTO code data
   const { data, error } = await supabase
