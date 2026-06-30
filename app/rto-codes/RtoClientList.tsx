@@ -42,13 +42,12 @@ export default function RtoClientList({ rtoData }: { rtoData: any[] }) {
       </div>
 
       {search ? (
-        /* 📊 Search Results View (Shows Cities/Codes) */
+        /* 📊 Search Results View (Static Cards - No links, No Arrows!) */
         <div className="space-y-4">
           <h2 className="text-xl font-bold text-white mb-4">Search Results</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredData.length > 0 ? (
               filteredData.map((item: any, index: number) => {
-                const stateSlug = String(item.state || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
                 return (
                   <div 
                     key={index}
@@ -62,9 +61,10 @@ export default function RtoClientList({ rtoData }: { rtoData: any[] }) {
                     <span className="text-sm font-bold text-white mb-1 line-clamp-2" title={item.place}>
                       {item.place}
                     </span>
-                    <Link href={`/rto-codes/${stateSlug}`} className="text-xs text-slate-400 font-medium truncate hover:text-blue-400 transition-colors mt-2">
-                      {item.state} ➔
-                    </Link>
+                    {/* 🚫 Arrow and Link removed completely! Pure static text now */}
+                    <span className="text-xs text-slate-400 font-medium truncate mt-2">
+                      {item.state}
+                    </span>
                   </div>
                 )
               })
