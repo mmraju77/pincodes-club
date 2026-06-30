@@ -1,79 +1,123 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { supabase } from '../../lib/supabase'; 
 
-export default function RailwayClientList({ stationData }: { stationData: any[] }) {
+const INDIAN_STATES = [
+  "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar",
+  "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Goa",
+  "Gujarat", "Haryana", "Himachal Pradesh", "Jammu and Kashmir", "Jharkhand", "Karnataka",
+  "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya",
+  "Mizoram", "Nagaland", "Odisha", "Puducherry", "Punjab", "Rajasthan", "Sikkim",
+  "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
+];
+
+export default function RailwayClientList() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
-  const uniqueStates = useMemo(() => {
-    const states = Array.from(new Set(stationData.map((item) => item.state)))
-      .filter(Boolean)
-      .sort();
-    return states;
-  }, [stationData]);
+  // 1. Debounce Logic: Waits 400ms after user stops typing before triggering API
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm.trim());
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
-  const search = searchTerm.trim().toLowerCase();
+  // 2. Dynamic Supabase Query: Bypasses max_rows limit by querying on demand
+  useEffect(() => {
+    let isMounted = true;
 
-  // 🚀 Improved Search Logic: More robust matching
-  const filteredData = search ? stationData.filter((item) => {
-    const name = String(item.station_name || '').toLowerCase();
-    const code = String(item.station_code || '').toLowerCase();
-    const state = String(item.state || '').toLowerCase();
-    const zone = String(item.zone || '').toLowerCase();
-    
-    return name.includes(search) || code.includes(search) || state.includes(search) || zone.includes(search);
-  }).slice(0, 50) : [];
+    async function executeSearch() {
+      if (!debouncedSearch) {
+        if (isMounted) setSearchResults([]);
+        return;
+      }
+
+      if (isMounted) setIsSearching(true);
+      
+      const { data, error } = await supabase
+        .from('station_codes')
+        .select('station_code, station_name, state, zone')
+        .or(`station_name.ilike.%${debouncedSearch}%,station_code.ilike.%${debouncedSearch}%`)
+        .order('station_name', { ascending: true })
+        .limit(50);
+
+      if (isMounted) {
+        if (error) {
+          console.error("Search Error:", error);
+          setSearchResults([]);
+        } else {
+          setSearchResults(data || []);
+        }
+        setIsSearching(false);
+      }
+    }
+
+    executeSearch();
+
+    // Cleanup function to prevent memory leaks if component unmounts mid-fetch
+    return () => { isMounted = false; };
+  }, [debouncedSearch]);
 
   return (
     <div className="w-full space-y-8">
+      {/* Search Input */}
       <div className="relative max-w-2xl mx-auto mb-10">
         <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
           <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
         </div>
         <input
           type="text"
-          placeholder="Search by Station Name, Code (e.g., VSKP), or Zone..."
+          placeholder="Search by Station Name or Code (e.g., VSKP, Secunderabad)..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full bg-slate-900/80 border border-slate-700 text-white rounded-full py-4 pl-14 pr-6 focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/50 transition-all placeholder-slate-500 shadow-xl text-lg"
         />
       </div>
 
-      {search ? (
+      {/* Conditional Rendering: Search Results vs State Directory */}
+      {searchTerm ? (
         <div className="space-y-4">
-          <h2 className="text-xl font-bold text-white mb-4">Search Results</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-white">Search Results</h2>
+            {isSearching && <span className="text-sm text-red-400 animate-pulse">Searching database...</span>}
+          </div>
+          
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filteredData.length > 0 ? (
-              filteredData.map((item: any, index: number) => {
-                return (
-                  <div 
-                    key={index}
-                    className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 flex flex-col shadow-sm hover:border-red-500/50 hover:bg-slate-800/80 transition-all cursor-default pointer-events-none"
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="text-xl font-extrabold text-red-400">
-                        {item.station_code}
+            {searchResults.length > 0 ? (
+              searchResults.map((item: any, index: number) => (
+                <div 
+                  key={index}
+                  className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 flex flex-col shadow-sm transition-all cursor-default"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-xl font-extrabold text-red-400">
+                      {item.station_code}
+                    </span>
+                    {item.zone && (
+                      <span className="text-[10px] font-bold bg-slate-800 text-slate-300 px-2 py-1 rounded">
+                        {item.zone}
                       </span>
-                      {item.zone && (
-                        <span className="text-[10px] font-bold bg-slate-800 text-slate-300 px-2 py-1 rounded">
-                          {item.zone}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-sm font-bold text-white mb-1 line-clamp-2" title={item.station_name}>
-                      {item.station_name}
-                    </span>
-                    <span className="text-xs text-slate-400 font-medium mt-2">
-                      {item.state}
-                    </span>
+                    )}
                   </div>
-                )
-              })
+                  <span className="text-sm font-bold text-white mb-1 line-clamp-2" title={item.station_name}>
+                    {item.station_name}
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium mt-2">
+                    {item.state}
+                  </span>
+                </div>
+              ))
             ) : (
-              <div className="col-span-full py-16 text-center bg-slate-900/30 rounded-2xl border border-slate-800 border-dashed">
-                <p className="text-slate-400 text-lg">No stations found matching "{searchTerm}"</p>
-              </div>
+              !isSearching && (
+                <div className="col-span-full py-16 text-center bg-slate-900/30 rounded-2xl border border-slate-800 border-dashed">
+                  <p className="text-slate-400 text-lg">No stations found matching "{searchTerm}"</p>
+                </div>
+              )
             )}
           </div>
         </div>
@@ -85,8 +129,8 @@ export default function RailwayClientList({ stationData }: { stationData: any[] 
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {uniqueStates.map((state: any, index: number) => {
-              const stateSlug = String(state).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+            {INDIAN_STATES.map((state: string, index: number) => {
+              const stateSlug = state.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
               return (
                 <Link 
                   href={`/railway-codes/${stateSlug}`}

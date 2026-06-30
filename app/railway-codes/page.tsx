@@ -1,6 +1,5 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
-import { supabase } from '../../lib/supabase';
 import RailwayClientList from './RailwayClientList';
 
 export const dynamic = 'force-dynamic';
@@ -12,13 +11,7 @@ export const metadata: Metadata = {
   keywords: 'railway station codes, irctc codes, indian railways codes, station directory',
 };
 
-export default async function RailwayDirectoryPage() {
-  const { data: stationData, error } = await supabase
-    .from('station_codes')
-    .select('*')
-    .order('station_name', { ascending: true })
-    .limit(5000);
-
+export default function RailwayDirectoryPage() {
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 space-y-8 flex flex-col min-h-screen">
       <nav className="flex text-sm text-slate-400 mb-8 items-center gap-2">
@@ -36,13 +29,7 @@ export default async function RailwayDirectoryPage() {
         </p>
       </div>
 
-      {error ? (
-        <div className="p-8 border border-red-500/30 bg-red-500/10 rounded-xl text-center">
-          <p className="text-red-400 font-semibold">Database Error: {error.message}</p>
-        </div>
-      ) : (
-        <RailwayClientList stationData={stationData || []} />
-      )}
+      <RailwayClientList />
     </div>
   );
 }
