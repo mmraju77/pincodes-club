@@ -6,7 +6,12 @@ import { notFound } from 'next/navigation';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function generateMetadata({ params }: any): Promise<Metadata> {
+// 🚀 100% Strict TypeScript for Vercel (No 'any' shortcut)
+type Props = {
+  params: Promise<{ state: string }>;
+};
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const resolvedParams = await params;
   const formattedState = String(resolvedParams.state || '').replace(/-/g, ' ').toUpperCase();
   return {
@@ -15,7 +20,7 @@ export async function generateMetadata({ params }: any): Promise<Metadata> {
   };
 }
 
-export default async function StateRtoPage({ params }: any) {
+export default async function StateRtoPage({ params }: Props) {
   const resolvedParams = await params;
   const stateQuery = String(resolvedParams.state || '').replace(/-/g, ' ');
 
@@ -51,7 +56,7 @@ export default async function StateRtoPage({ params }: any) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {data.map((item: any, index: number) => {
+        {data.map((item: { place: string; regno: string; state: string }, index: number) => {
           return (
             <div 
               key={index}
