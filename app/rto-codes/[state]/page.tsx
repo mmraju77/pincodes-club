@@ -6,7 +6,6 @@ import { notFound } from 'next/navigation';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// 🚀 100% Strict TypeScript for Vercel (No 'any' shortcut)
 type Props = {
   params: Promise<{ state: string }>;
 };
@@ -22,7 +21,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function StateRtoPage({ params }: Props) {
   const resolvedParams = await params;
-  const stateQuery = String(resolvedParams.state || '').replace(/-/g, ' ');
+  const stateParam = String(resolvedParams.state || '');
+
+  // 🚀 SMART WILDCARD SEARCH: Replaces hyphens with '%' to effortlessly match '&', 'and', or extra spaces in the DB!
+  const stateQuery = '%' + stateParam.replace(/-/g, '%') + '%';
 
   const { data, error } = await supabase
     .from('rto_codes')
@@ -34,6 +36,7 @@ export default async function StateRtoPage({ params }: Props) {
     notFound();
   }
 
+  // Uses the exact name from the database for display (e.g., "Andaman & Nicobar Islands")
   const displayState = data[0].state.toUpperCase();
 
   return (
