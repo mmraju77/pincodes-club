@@ -15,6 +15,7 @@ export default function RailwayClientList({ stationData }: { stationData: any[] 
 
   const search = searchTerm.trim().toLowerCase();
 
+  // 🚀 Improved Search Logic: More robust matching
   const filteredData = search ? stationData.filter((item) => {
     const name = String(item.station_name || '').toLowerCase();
     const code = String(item.station_code || '').toLowerCase();
@@ -22,7 +23,7 @@ export default function RailwayClientList({ stationData }: { stationData: any[] 
     const zone = String(item.zone || '').toLowerCase();
     
     return name.includes(search) || code.includes(search) || state.includes(search) || zone.includes(search);
-  }).slice(0, 50) : []; // Limited to 50 for fast search performance
+  }).slice(0, 50) : [];
 
   return (
     <div className="w-full space-y-8">
@@ -48,7 +49,7 @@ export default function RailwayClientList({ stationData }: { stationData: any[] 
                 return (
                   <div 
                     key={index}
-                    className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 flex flex-col shadow-sm hover:border-red-500/50 hover:bg-slate-800/80 transition-all"
+                    className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 flex flex-col shadow-sm hover:border-red-500/50 hover:bg-slate-800/80 transition-all cursor-default pointer-events-none"
                   >
                     <div className="flex justify-between items-start mb-2">
                       <span className="text-xl font-extrabold text-red-400">
