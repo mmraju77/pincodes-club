@@ -18,7 +18,6 @@ export default function RailwayClientList() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Debounce input to prevent spamming the API
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm.trim());
@@ -26,7 +25,6 @@ export default function RailwayClientList() {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  // Fetch results from the API route
   useEffect(() => {
     let isMounted = true;
 
@@ -40,6 +38,9 @@ export default function RailwayClientList() {
       
       try {
         const response = await fetch(`/api/railway?q=${encodeURIComponent(debouncedSearch)}`);
+        if (!response.ok) {
+            throw new Error('API request failed');
+        }
         const data = await response.json();
         
         if (isMounted) {

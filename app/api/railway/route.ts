@@ -1,10 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { supabase } from '../../../lib/supabase';
 
-export async function GET(request: Request) {
+// 🚀 Idi chala important! Idi Vercel 500 error ni aaputhundi
+export const dynamic = 'force-dynamic';
+
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const query = searchParams.get('q')?.trim();
+    const query = request.nextUrl.searchParams.get('q')?.trim();
 
     if (!query) {
       return NextResponse.json([]);
@@ -24,6 +26,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(data || []);
   } catch (err) {
+    console.error("API Error:", err);
     return NextResponse.json([], { status: 500 });
   }
 }
