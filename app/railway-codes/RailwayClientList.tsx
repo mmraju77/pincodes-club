@@ -12,17 +12,13 @@ const INDIAN_STATES = [
   "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
 ];
 
-type RailwayClientListProps = {
-  searchAction: (query: string) => Promise<any[]>;
-};
-
-export default function RailwayClientList({ searchAction }: RailwayClientListProps) {
+export default function RailwayClientList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  // 1. Debounce Logic: Waits 400ms after typing stops to prevent server overload
+  // Debounce input to prevent spamming the API
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm.trim());
@@ -30,7 +26,7 @@ export default function RailwayClientList({ searchAction }: RailwayClientListPro
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  // 2. Fetch data via Next.js Server Action
+  // Fetch results from the API route
   useEffect(() => {
     let isMounted = true;
 
@@ -43,39 +39,39 @@ export default function RailwayClientList({ searchAction }: RailwayClientListPro
       if (isMounted) setIsSearching(true);
       
       try {
-        const results = await searchAction(debouncedSearch);
+        const response = await fetch(`/api/railway?q=${encodeURIComponent(debouncedSearch)}`);
+        const data = await response.json();
+        
         if (isMounted) {
-          setSearchResults(results || []);
+          setSearchResults(data || []);
         }
       } catch (error) {
-        console.error("Action error:", error);
+        console.error("Fetch error:", error);
+        if (isMounted) setSearchResults([]);
       } finally {
         if (isMounted) setIsSearching(false);
       }
     }
 
     fetchResults();
-
     return () => { isMounted = false; };
-  }, [debouncedSearch, searchAction]);
+  }, [debouncedSearch]);
 
   return (
     <div className="w-full space-y-8">
-      {/* 🔍 Premium Global Search Input */}
       <div className="relative max-w-2xl mx-auto mb-10">
         <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
           <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
         </div>
         <input
           type="text"
-          placeholder="Search by Station Name or Code (e.g., VSKP, Secunderabad)..."
+          placeholder="Search by Station Name or Code (e.g., VSKP)..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full bg-slate-900/80 border border-slate-700 text-white rounded-full py-4 pl-14 pr-6 focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/50 transition-all placeholder-slate-500 shadow-xl text-lg"
         />
       </div>
 
-      {/* 📊 Conditional Rendering */}
       {searchTerm ? (
         <div className="space-y-4">
           <div className="flex items-center justify-between mb-4">

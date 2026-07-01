@@ -1,6 +1,5 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
-import { supabase } from '../../lib/supabase';
 import RailwayClientList from './RailwayClientList';
 
 export const dynamic = 'force-dynamic';
@@ -9,34 +8,9 @@ export const revalidate = 0;
 export const metadata: Metadata = {
   title: 'All India Railway Station Codes Directory | Pincode Club',
   description: 'Search Indian Railways station codes, station names, railway zones, and locations instantly.',
-  keywords: 'railway station codes, irctc codes, indian railways codes, station directory',
 };
 
 export default function RailwayDirectoryPage() {
-  
-  // 🚀 NEXT.JS SERVER ACTION: Securely queries DB from the server, 
-  // bypassing Client-Side env var restrictions completely!
-  async function searchDatabase(searchTerm: string) {
-    'use server';
-    
-    if (!searchTerm) return [];
-    const cleanQuery = searchTerm.trim();
-    
-    const { data, error } = await supabase
-      .from('station_codes')
-      .select('station_code, station_name, state, zone')
-      .or(`station_name.ilike.%${cleanQuery}%,station_code.ilike.%${cleanQuery}%`)
-      .order('station_name', { ascending: true })
-      .limit(50);
-      
-    if (error) {
-      console.error("Supabase Search Error:", error);
-      return [];
-    }
-    
-    return data || [];
-  }
-
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 space-y-8 flex flex-col min-h-screen">
       <nav className="flex text-sm text-slate-400 mb-8 items-center gap-2">
@@ -54,8 +28,7 @@ export default function RailwayDirectoryPage() {
         </p>
       </div>
 
-      {/* Passing the Server Action directly to the Client Component */}
-      <RailwayClientList searchAction={searchDatabase} />
+      <RailwayClientList />
     </div>
   );
 }
