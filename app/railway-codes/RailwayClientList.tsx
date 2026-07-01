@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { supabase } from '../../lib/supabase';
 
 const INDIAN_STATES = [
   "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar",
@@ -37,17 +38,20 @@ export default function RailwayClientList() {
       if (isMounted) setIsSearching(true);
       
       try {
-        const response = await fetch(`/api/railway?q=${encodeURIComponent(debouncedSearch)}`);
-        if (!response.ok) {
-            throw new Error('API request failed');
-        }
-        const data = await response.json();
+        const { data, error } = await supabase
+          .from('station_codes')
+          .select('*')
+          .or(`station_name.ilike.%${debouncedSearch}%,station_code.ilike.%${debouncedSearch}%`)
+          .order('station_name', { ascending: true })
+          .limit(50);
+
+        if (error) throw error;
         
         if (isMounted) {
           setSearchResults(data || []);
         }
       } catch (error) {
-        console.error("Fetch error:", error);
+        console.error("Direct Supabase query error:", error);
         if (isMounted) setSearchResults([]);
       } finally {
         if (isMounted) setIsSearching(false);
