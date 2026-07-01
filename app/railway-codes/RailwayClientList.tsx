@@ -38,20 +38,43 @@ export default function RailwayClientList() {
       if (isMounted) setIsSearching(true);
       
       try {
-        const { data, error } = await supabase
-          .from('station_codes')
-          .select('*')
-          .or(`station_name.ilike.%${debouncedSearch}%,station_code.ilike.%${debouncedSearch}%`)
-          .order('station_name', { ascending: true })
-          .limit(50);
+        const safeQuery = `%${debouncedSearch}%`;
 
-        if (error) throw error;
+        // 🚀 BULLETPROOF ARCHITECTURE: 
+        // Bypassing Supabase .or() bugs by running two separate queries in parallel!
+        const [codeResponse, nameResponse] = await Promise.all([
+          supabase.from('station_codes').select('*').ilike('station_code', safeQuery).limit(50),
+          supabase.from('station_codes').select('*').ilike('station_name', safeQuery).limit(50)
+        ]);
+
+        // Safely combine results from both queries
+        const combinedData = [
+          ...(codeResponse.data || []),
+          ...(nameResponse.data || [])
+        ];
+
+        // Deduplicate the data so we don't show the same station twice
+        const uniqueStationsMap = new Map();
+        combinedData.forEach(item => {
+          if (item && item.station_code) {
+            uniqueStationsMap.set(item.station_code, item);
+          }
+        });
         
+        const finalResults = Array.from(uniqueStationsMap.values());
+        
+        // Sort results alphabetically by station name
+        finalResults.sort((a, b) => {
+          const nameA = a.station_name || '';
+          const nameB = b.station_name || '';
+          return nameA.localeCompare(nameB);
+        });
+
         if (isMounted) {
-          setSearchResults(data || []);
+          setSearchResults(finalResults);
         }
       } catch (error) {
-        console.error("Direct Supabase query error:", error);
+        console.error("Parallel Search Error:", error);
         if (isMounted) setSearchResults([]);
       } finally {
         if (isMounted) setIsSearching(false);
