@@ -28,14 +28,16 @@ export default async function StateRailwayPage({ params }: Props) {
     notFound();
   }
 
-  // 🚀 Smart wildcard search to match exact database text
+  // Smart wildcard search to match exact database text
   const stateQuery = '%' + stateParam.replace(/-/g, '%') + '%';
 
+  // Fetches up to 10000 rows to bypass Supabase's default 1000 row cutoff limit
   const { data, error } = await supabase
     .from('station_codes')
     .select('*')
     .ilike('state', stateQuery)
-    .order('station_name', { ascending: true });
+    .order('station_name', { ascending: true })
+    .limit(10000);
 
   if (error || !data || data.length === 0) {
     notFound();
