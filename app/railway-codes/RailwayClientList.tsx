@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { supabase } from '../../lib/supabase'; 
 
 const INDIAN_STATES = [
   "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar",
@@ -13,13 +12,17 @@ const INDIAN_STATES = [
   "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
 ];
 
-export default function RailwayClientList() {
+type RailwayClientListProps = {
+  searchAction: (query: string) => Promise<any[]>;
+};
+
+export default function RailwayClientList({ searchAction }: RailwayClientListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  // 1. Debounce Logic: Waits 400ms after user stops typing before triggering API
+  // 1. Debounce Logic: Waits 400ms after typing stops to prevent server overload
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm.trim());
@@ -27,11 +30,11 @@ export default function RailwayClientList() {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  // 2. Dynamic Supabase Query: Bypasses max_rows limit by querying on demand
+  // 2. Fetch data via Next.js Server Action
   useEffect(() => {
     let isMounted = true;
 
-    async function executeSearch() {
+    async function fetchResults() {
       if (!debouncedSearch) {
         if (isMounted) setSearchResults([]);
         return;
@@ -39,33 +42,26 @@ export default function RailwayClientList() {
 
       if (isMounted) setIsSearching(true);
       
-      const { data, error } = await supabase
-        .from('station_codes')
-        .select('station_code, station_name, state, zone')
-        .or(`station_name.ilike.%${debouncedSearch}%,station_code.ilike.%${debouncedSearch}%`)
-        .order('station_name', { ascending: true })
-        .limit(50);
-
-      if (isMounted) {
-        if (error) {
-          console.error("Search Error:", error);
-          setSearchResults([]);
-        } else {
-          setSearchResults(data || []);
+      try {
+        const results = await searchAction(debouncedSearch);
+        if (isMounted) {
+          setSearchResults(results || []);
         }
-        setIsSearching(false);
+      } catch (error) {
+        console.error("Action error:", error);
+      } finally {
+        if (isMounted) setIsSearching(false);
       }
     }
 
-    executeSearch();
+    fetchResults();
 
-    // Cleanup function to prevent memory leaks if component unmounts mid-fetch
     return () => { isMounted = false; };
-  }, [debouncedSearch]);
+  }, [debouncedSearch, searchAction]);
 
   return (
     <div className="w-full space-y-8">
-      {/* Search Input */}
+      {/* 🔍 Premium Global Search Input */}
       <div className="relative max-w-2xl mx-auto mb-10">
         <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
           <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -79,12 +75,12 @@ export default function RailwayClientList() {
         />
       </div>
 
-      {/* Conditional Rendering: Search Results vs State Directory */}
+      {/* 📊 Conditional Rendering */}
       {searchTerm ? (
         <div className="space-y-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-white">Search Results</h2>
-            {isSearching && <span className="text-sm text-red-400 animate-pulse">Searching database...</span>}
+            {isSearching && <span className="text-sm text-red-400 animate-pulse font-medium">Searching database...</span>}
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
