@@ -34,14 +34,13 @@ export default function GstClientList() {
   }, []);
 
   const filteredResults = allData.filter((item) => {
-    const query = searchTerm.toLowerCase().trim();
-    const stateName = (item.state_name || '').toLowerCase();
+    // 🚀 Smart Search: Removes all spaces so "andhrapradesh" matches "Andhra Pradesh"
+    const query = searchTerm.toLowerCase().replace(/\s+/g, '');
+    const stateNameNoSpaces = (item.state_name || '').toLowerCase().replace(/\s+/g, '');
     const stateCode = (item.state_code || '').toString();
-    
-    // Allows searching by "04" or "4" for Chandigarh
     const paddedCode = stateCode.padStart(2, '0');
     
-    return stateName.includes(query) || stateCode.includes(query) || paddedCode.includes(query);
+    return stateNameNoSpaces.includes(query) || stateCode.includes(query) || paddedCode.includes(query);
   });
 
   return (
