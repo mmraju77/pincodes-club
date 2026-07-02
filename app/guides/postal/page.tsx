@@ -28,7 +28,6 @@ export default function PostalGuidesPage() {
   return (
     <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 space-y-10 min-h-screen">
       
-      {/* Breadcrumb Navigation */}
       <nav className="flex text-sm text-slate-400 items-center gap-2">
         <Link href="/" className="hover:text-blue-400 transition-colors">HOME</Link>
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
@@ -37,7 +36,6 @@ export default function PostalGuidesPage() {
         <span className="text-white font-bold uppercase">POSTAL</span>
       </nav>
 
-      {/* Page Header */}
       <div className="border-b border-slate-800 pb-8">
         <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-6 border border-blue-500/20">
           <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
@@ -46,7 +44,6 @@ export default function PostalGuidesPage() {
         <p className="text-slate-300 text-lg">Comprehensive tutorials to help you master postal services, tracking, and saving schemes in India.</p>
       </div>
 
-      {/* Articles Feed */}
       <div className="space-y-8">
         {articles.map((article, index) => (
           <article key={index} className="bg-slate-900/40 p-8 rounded-3xl border border-slate-800 hover:border-blue-500/30 transition-all">
