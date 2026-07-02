@@ -11,17 +11,20 @@ export default function PostalGuidesPage() {
     {
       title: "How to Track Speed Post (Step-by-Step)",
       content: "Speed Post is India Post's high-speed postal service. To track your parcel, locate the 13-digit alphanumeric consignment number (e.g., EE123456789IN) on your receipt. Enter this number in the India Post tracking portal to see real-time status updates from booking to delivery.",
-      readTime: "3 min read"
+      readTime: "3 min read",
+      link: "/guides/postal/speed-post-tracking"
     },
     {
       title: "Why is the Correct Pincode Important?",
       content: "A PIN (Postal Index Number) is a 6-digit code. The first digit represents the region, the second the sub-region, the third the sorting district, and the last three digits represent the specific post office. Using the exact Pincode ensures your mail reaches the destination without manual sorting delays.",
-      readTime: "4 min read"
+      readTime: "4 min read",
+      link: "#" // భవిష్యత్తులో ఈ పేజీ క్రియేట్ చేద్దాం
     },
     {
       title: "India Post Saving Schemes (2026 Update)",
       content: "Post offices in India offer some of the most secure and high-yielding saving schemes, such as the Public Provident Fund (PPF), Sukanya Samriddhi Yojana (SSY), and Kisan Vikas Patra (KVP). These schemes offer sovereign guarantee and excellent tax benefits under Section 80C.",
-      readTime: "5 min read"
+      readTime: "5 min read",
+      link: "#" // భవిష్యత్తులో ఈ పేజీ క్రియేట్ చేద్దాం
     }
   ];
 
@@ -62,9 +65,10 @@ export default function PostalGuidesPage() {
               {article.content}
             </p>
             
-            <button className="text-blue-400 font-bold hover:text-blue-300 flex items-center gap-2 transition-colors">
+            {/* ఇక్కడ Link యాడ్ చేసాము */}
+            <Link href={article.link} className="inline-flex text-blue-400 font-bold hover:text-blue-300 items-center gap-2 transition-colors">
               Read Full Article <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-            </button>
+            </Link>
           </article>
         ))}
       </div>
