@@ -1,25 +1,15 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
-import { supabase } from '../../lib/supabase';
 import GstClientList from './GstClientList';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 export const metadata: Metadata = {
   title: 'All India GST State Codes Directory | Pincode Club',
   description: 'Find official 2-digit GST state codes for all Indian states and Union Territories.',
-  keywords: 'gst state code, gst code list, indian gst codes, state code for gst',
 };
 
-export default async function GstDirectoryPage() {
-  const { data, error } = await supabase
-    .from('gst_codes')
-    .select('*')
-    .order('state_name', { ascending: true });
-
-  const gstData = data || [];
-
+export default function GstDirectoryPage() {
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 space-y-8 flex flex-col min-h-screen">
       <nav className="flex text-sm text-slate-400 mb-8 items-center gap-2">
@@ -37,7 +27,7 @@ export default async function GstDirectoryPage() {
         </p>
       </div>
 
-      <GstClientList initialData={gstData} />
+      <GstClientList />
     </div>
   );
 }

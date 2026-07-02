@@ -1,16 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
 
-type GstRecord = {
-  state_code: number;
-  state_name: string;
-};
-
-export default function GstClientList({ initialData }: { initialData: GstRecord[] }) {
+export default function GstClientList() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [allData, setAllData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filteredResults = initialData.filter((item) => {
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchGstData() {
+      try {
+        const { data, error } = await supabase
+          .from('gst_codes')
+          .select('*')
+          .order('state_name', { ascending: true });
+        
+        if (error) throw error;
+        
+        if (isMounted && data) {
+          setAllData(data);
+        }
+      } catch (error) {
+        console.error("Error fetching GST codes:", error);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+    
+    fetchGstData();
+    return () => { isMounted = false; };
+  }, []);
+
+  const filteredResults = allData.filter((item) => {
     const query = searchTerm.toLowerCase().trim();
     const stateName = (item.state_name || '').toLowerCase();
     const stateCode = (item.state_code || '').toString();
@@ -42,41 +65,46 @@ export default function GstClientList({ initialData }: { initialData: GstRecord[
             {searchTerm ? 'Search Results' : 'All States & Union Territories'}
           </h2>
           <span className="text-sm font-medium bg-slate-800 text-slate-300 px-3 py-1 rounded-full">
-            {filteredResults.length} Found
+            {isLoading ? 'Loading...' : `${filteredResults.length} Found`}
           </span>
         </div>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filteredResults.length > 0 ? (
-            filteredResults.map((item, index) => {
-              // GST codes must always display as 2 digits (e.g., 4 becomes 04)
-              const formattedCode = (item.state_code || '').toString().padStart(2, '0');
+        {isLoading ? (
+          <div className="w-full py-16 text-center bg-slate-900/30 rounded-2xl border border-slate-800 border-dashed">
+            <p className="text-purple-400 text-lg animate-pulse font-medium">Fetching GST Codes...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {filteredResults.length > 0 ? (
+              filteredResults.map((item, index) => {
+                const formattedCode = (item.state_code || '').toString().padStart(2, '0');
 
-              return (
-                <div 
-                  key={index}
-                  className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 flex flex-col shadow-sm hover:border-purple-500/50 transition-all cursor-default group"
-                >
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="text-[10px] font-bold bg-slate-800 text-slate-400 px-2 py-1 rounded uppercase tracking-wider group-hover:text-purple-400 transition-colors">
-                      GST CODE
-                    </span>
-                    <span className="text-2xl font-extrabold text-purple-400 bg-purple-500/10 px-3 py-1 rounded-lg border border-purple-500/20 shadow-sm">
-                      {formattedCode}
+                return (
+                  <div 
+                    key={index}
+                    className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 flex flex-col shadow-sm hover:border-purple-500/50 transition-all cursor-default group"
+                  >
+                    <div className="flex justify-between items-center mb-4">
+                      <span className="text-[10px] font-bold bg-slate-800 text-slate-400 px-2 py-1 rounded uppercase tracking-wider group-hover:text-purple-400 transition-colors">
+                        GST CODE
+                      </span>
+                      <span className="text-2xl font-extrabold text-purple-400 bg-purple-500/10 px-3 py-1 rounded-lg border border-purple-500/20 shadow-sm">
+                        {formattedCode}
+                      </span>
+                    </div>
+                    <span className="text-lg font-bold text-white line-clamp-2 mt-auto pt-4 border-t border-slate-800/50" title={item.state_name}>
+                      {item.state_name}
                     </span>
                   </div>
-                  <span className="text-lg font-bold text-white line-clamp-2 mt-auto pt-4 border-t border-slate-800/50" title={item.state_name}>
-                    {item.state_name}
-                  </span>
-                </div>
-              )
-            })
-          ) : (
-            <div className="col-span-full py-16 text-center bg-slate-900/30 rounded-2xl border border-slate-800 border-dashed">
-              <p className="text-slate-400 text-lg">No GST codes found matching "{searchTerm}"</p>
-            </div>
-          )}
-        </div>
+                )
+              })
+            ) : (
+              <div className="col-span-full py-16 text-center bg-slate-900/30 rounded-2xl border border-slate-800 border-dashed">
+                <p className="text-slate-400 text-lg">No GST codes found matching "{searchTerm}"</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
