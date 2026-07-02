@@ -30,7 +30,6 @@ export default async function StateMicrPage({ params }: Props) {
 
   const stateQuery = '%' + stateParam.replace(/-/g, '%') + '%';
 
-  // 🚀 Fetching from ifsc_codes table
   const { data, error } = await supabase
     .from('ifsc_codes')
     .select('*')
@@ -42,7 +41,6 @@ export default async function StateMicrPage({ params }: Props) {
     notFound();
   }
 
-  // 🚀 Filter out branches that do not have a MICR code
   const validData = data.filter((item: any) => {
     const m = item.micr || item.micr_code;
     return m && m !== 'NA' && m.trim() !== '';
@@ -53,6 +51,16 @@ export default async function StateMicrPage({ params }: Props) {
   }
 
   const displayState = validData[0].state.toUpperCase();
+
+  // 🚀 Advanced Grouping Logic: Groups all branches under their respective Bank Name
+  const groupedByBank = validData.reduce((acc: any, item: any) => {
+    const bankName = item.bank || item.bank_name || 'UNKNOWN BANK';
+    if (!acc[bankName]) {
+      acc[bankName] = [];
+    }
+    acc[bankName].push(item);
+    return acc;
+  }, {});
 
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 min-h-screen">
@@ -73,39 +81,48 @@ export default async function StateMicrPage({ params }: Props) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {validData.map((item: any, index: number) => {
-          const micrValue = item.micr || item.micr_code;
-          const bankValue = item.bank || item.bank_name;
-          const branchValue = item.branch || item.branch_name;
+      <div className="space-y-12">
+        {Object.entries(groupedByBank).map(([bankName, branches]: [string, any], bankIndex: number) => (
+          <div key={bankIndex} className="bg-slate-900/40 p-6 md:p-8 rounded-3xl border border-slate-700/50">
+            {/* 🏦 Bank Name Header */}
+            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3 border-b border-slate-700 pb-4">
+              <div className="w-2 h-8 bg-emerald-500 rounded-full"></div>
+              {bankName}
+              <span className="text-sm font-medium bg-slate-800 text-slate-300 px-3 py-1 rounded-full ml-auto">
+                {branches.length} Branches
+              </span>
+            </h2>
+            
+            {/* 🏢 Branch Cards under the Bank */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {branches.map((item: any, branchIndex: number) => {
+                const micrValue = item.micr || item.micr_code;
+                const branchValue = item.branch || item.branch_name;
 
-          return (
-            <div 
-              key={index}
-              className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 flex flex-col shadow-sm hover:border-emerald-500/50 transition-all cursor-default"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <span className="text-lg font-bold text-white line-clamp-2">
-                  {bankValue}
-                </span>
-                <span className="bg-emerald-500 text-white font-extrabold px-3 py-1 rounded-lg ml-3 flex-shrink-0 tracking-wider">
-                  {micrValue}
-                </span>
-              </div>
-              <div className="mt-auto pt-4 border-t border-slate-800/50">
-                <div className="flex justify-between items-center">
-                  <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Branch</p>
-                  <p className="text-sm text-emerald-400 font-bold truncate max-w-[150px]" title={branchValue}>
-                    {branchValue || 'N/A'}
-                  </p>
-                </div>
-                {item.address && (
-                  <p className="text-xs text-slate-400 mt-2 line-clamp-2" title={item.address}>{item.address}</p>
-                )}
-              </div>
+                return (
+                  <div 
+                    key={branchIndex}
+                    className="bg-slate-800/50 p-5 rounded-xl border border-slate-700 flex flex-col shadow-sm hover:border-emerald-500/50 transition-all cursor-default"
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <span className="text-md font-bold text-slate-200 line-clamp-1" title={branchValue}>
+                        {branchValue || 'Main Branch'}
+                      </span>
+                      <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-extrabold px-3 py-1 rounded-lg ml-3 flex-shrink-0 tracking-widest">
+                        {micrValue}
+                      </span>
+                    </div>
+                    {item.address && (
+                      <p className="text-xs text-slate-400 mt-auto line-clamp-2" title={item.address}>
+                        {item.address}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </div>
   );
