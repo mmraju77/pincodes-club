@@ -30,18 +30,29 @@ export default async function StateMicrPage({ params }: Props) {
 
   const stateQuery = '%' + stateParam.replace(/-/g, '%') + '%';
 
+  // 🚀 Fetching from ifsc_codes table
   const { data, error } = await supabase
-    .from('micr_codes')
+    .from('ifsc_codes')
     .select('*')
     .ilike('state', stateQuery)
-    .order('bank_name', { ascending: true })
+    .order('bank', { ascending: true })
     .limit(10000);
 
   if (error || !data || data.length === 0) {
     notFound();
   }
 
-  const displayState = data[0].state.toUpperCase();
+  // 🚀 Filter out branches that do not have a MICR code
+  const validData = data.filter((item: any) => {
+    const m = item.micr || item.micr_code;
+    return m && m !== 'NA' && m.trim() !== '';
+  });
+
+  if (validData.length === 0) {
+    notFound();
+  }
+
+  const displayState = validData[0].state.toUpperCase();
 
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 min-h-screen">
@@ -63,7 +74,11 @@ export default async function StateMicrPage({ params }: Props) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {data.map((item: any, index: number) => {
+        {validData.map((item: any, index: number) => {
+          const micrValue = item.micr || item.micr_code;
+          const bankValue = item.bank || item.bank_name;
+          const branchValue = item.branch || item.branch_name;
+
           return (
             <div 
               key={index}
@@ -71,17 +86,17 @@ export default async function StateMicrPage({ params }: Props) {
             >
               <div className="flex justify-between items-start mb-4">
                 <span className="text-lg font-bold text-white line-clamp-2">
-                  {item.bank_name}
+                  {bankValue}
                 </span>
                 <span className="bg-emerald-500 text-white font-extrabold px-3 py-1 rounded-lg ml-3 flex-shrink-0 tracking-wider">
-                  {item.micr_code}
+                  {micrValue}
                 </span>
               </div>
               <div className="mt-auto pt-4 border-t border-slate-800/50">
                 <div className="flex justify-between items-center">
                   <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Branch</p>
-                  <p className="text-sm text-emerald-400 font-bold truncate max-w-[150px]" title={item.branch_name}>
-                    {item.branch_name || 'N/A'}
+                  <p className="text-sm text-emerald-400 font-bold truncate max-w-[150px]" title={branchValue}>
+                    {branchValue || 'N/A'}
                   </p>
                 </div>
                 {item.address && (

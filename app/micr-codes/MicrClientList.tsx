@@ -40,10 +40,10 @@ export default function MicrClientList() {
       try {
         const safeQuery = `%${debouncedSearch}%`;
 
-        // Parallel query architecture to prevent missing data
+        // 🚀 Fetching directly from existing 'ifsc_codes' table
         const [codeResponse, bankResponse] = await Promise.all([
-          supabase.from('micr_codes').select('*').ilike('micr_code', safeQuery).limit(50),
-          supabase.from('micr_codes').select('*').ilike('bank_name', safeQuery).limit(50)
+          supabase.from('ifsc_codes').select('*').ilike('micr', safeQuery).limit(50),
+          supabase.from('ifsc_codes').select('*').ilike('bank', safeQuery).limit(50)
         ]);
 
         const combinedData = [
@@ -53,8 +53,10 @@ export default function MicrClientList() {
 
         const uniqueMicrMap = new Map();
         combinedData.forEach(item => {
-          if (item && item.micr_code) {
-            uniqueMicrMap.set(item.micr_code, item);
+          const micrValue = item.micr || item.micr_code;
+          // Filter out rows where MICR is missing or 'NA'
+          if (micrValue && micrValue !== 'NA' && micrValue.trim() !== '') {
+            uniqueMicrMap.set(micrValue, item);
           }
         });
         
@@ -99,27 +101,33 @@ export default function MicrClientList() {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {searchResults.length > 0 ? (
-              searchResults.map((item: any, index: number) => (
-                <div 
-                  key={index}
-                  className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 flex flex-col shadow-sm transition-all cursor-default"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-xl font-extrabold text-emerald-400 tracking-wider">
-                      {item.micr_code}
+              searchResults.map((item: any, index: number) => {
+                const micrValue = item.micr || item.micr_code;
+                const bankValue = item.bank || item.bank_name;
+                const branchValue = item.branch || item.branch_name;
+
+                return (
+                  <div 
+                    key={index}
+                    className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 flex flex-col shadow-sm transition-all cursor-default"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-xl font-extrabold text-emerald-400 tracking-wider">
+                        {micrValue}
+                      </span>
+                    </div>
+                    <span className="text-sm font-bold text-white mb-1 line-clamp-2" title={bankValue}>
+                      {bankValue}
+                    </span>
+                    <span className="text-xs text-slate-300 font-medium mt-1">
+                      {branchValue}
+                    </span>
+                    <span className="text-xs text-slate-500 font-medium mt-3">
+                      {item.state}
                     </span>
                   </div>
-                  <span className="text-sm font-bold text-white mb-1 line-clamp-2" title={item.bank_name}>
-                    {item.bank_name}
-                  </span>
-                  <span className="text-xs text-slate-300 font-medium mt-1">
-                    {item.branch_name}
-                  </span>
-                  <span className="text-xs text-slate-500 font-medium mt-3">
-                    {item.state}
-                  </span>
-                </div>
-              ))
+                )
+              })
             ) : (
               !isSearching && (
                 <div className="col-span-full py-16 text-center bg-slate-900/30 rounded-2xl border border-slate-800 border-dashed">
