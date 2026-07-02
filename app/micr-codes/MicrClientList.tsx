@@ -40,21 +40,22 @@ export default function MicrClientList() {
       try {
         const safeQuery = `%${debouncedSearch}%`;
 
-        // 🚀 Fetching directly from existing 'ifsc_codes' table
-        const [codeResponse, bankResponse] = await Promise.all([
+        // 🚀 Fetching from MICR, Bank Name, AND Branch/City Name simultaneously!
+        const [codeResponse, bankResponse, branchResponse] = await Promise.all([
           supabase.from('ifsc_codes').select('*').ilike('micr', safeQuery).limit(50),
-          supabase.from('ifsc_codes').select('*').ilike('bank', safeQuery).limit(50)
+          supabase.from('ifsc_codes').select('*').ilike('bank', safeQuery).limit(50),
+          supabase.from('ifsc_codes').select('*').ilike('branch', safeQuery).limit(50)
         ]);
 
         const combinedData = [
           ...(codeResponse.data || []),
-          ...(bankResponse.data || [])
+          ...(bankResponse.data || []),
+          ...(branchResponse.data || [])
         ];
 
         const uniqueMicrMap = new Map();
         combinedData.forEach(item => {
           const micrValue = item.micr || item.micr_code;
-          // Filter out rows where MICR is missing or 'NA'
           if (micrValue && micrValue !== 'NA' && micrValue.trim() !== '') {
             uniqueMicrMap.set(micrValue, item);
           }
@@ -85,7 +86,7 @@ export default function MicrClientList() {
         </div>
         <input
           type="text"
-          placeholder="Search by 9-digit MICR Code or Bank Name..."
+          placeholder="Search by City, Branch, Bank, or MICR Code..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full bg-slate-900/80 border border-slate-700 text-white rounded-full py-4 pl-14 pr-6 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/50 transition-all placeholder-slate-500 shadow-xl text-lg"
