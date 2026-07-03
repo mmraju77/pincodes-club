@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase Setup
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -26,34 +25,44 @@ export default function PincodesHubPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [isListening, setIsListening] = useState(false);
 
-  // Search Functionality
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       if (searchQuery.length > 2) {
-        performSearch(searchQuery);
+        performSearch(searchQuery.trim());
       } else {
         setSearchResults([]);
       }
-    }, 500); // Wait 500ms before searching
+    }, 500);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
 
   const performSearch = async (query: string) => {
     setIsSearching(true);
-    // Search in office_name, district, or pincode
-    const { data, error } = await supabase
-      .from('pincodes')
-      .select('*')
-      .or(`office_name.ilike.%${query}%,district.ilike.%${query}%,pincode.ilike.%${query}%`)
-      .limit(20);
+    try {
+      let q = supabase.from('pincodes').select('*').limit(20);
 
-    if (error) console.error("Search Error:", error);
-    if (data) setSearchResults(data);
+      // 🚀 ERROR FIX: నెంబర్ అయితే పిన్ కోడ్ లో వెతుకుతుంది, పదం అయితే ఊరు పేరులో వెతుకుతుంది.
+      if (/^\d+$/.test(query)) {
+        q = q.eq('pincode', Number(query));
+      } else {
+        q = q.or(`office_name.ilike.%${query}%,district.ilike.%${query}%`);
+      }
+
+      const { data, error } = await q;
+
+      if (error) {
+        console.error("Search Error:", error);
+      }
+      if (data) {
+        setSearchResults(data);
+      }
+    } catch (err) {
+      console.error("Unexpected error:", err);
+    }
     setIsSearching(false);
   };
 
-  // Voice Search (Web Speech API)
   const startListening = () => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -61,37 +70,29 @@ export default function PincodesHubPage() {
       
       recognition.continuous = false;
       recognition.interimResults = false;
-      recognition.lang = 'en-IN'; // Set to Indian English
+      recognition.lang = 'en-IN'; 
 
-      recognition.onstart = () => {
-        setIsListening(true);
-      };
+      recognition.onstart = () => setIsListening(true);
 
       recognition.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
-        setSearchQuery(transcript);
+        setSearchQuery(transcript.replace(/[^a-zA-Z0-9 ]/g, ""));
         setIsListening(false);
       };
 
-      recognition.onerror = (event: any) => {
-        console.error("Speech recognition error", event.error);
-        setIsListening(false);
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
+      recognition.onerror = () => setIsListening(false);
+      recognition.onend = () => setIsListening(false);
 
       recognition.start();
     } else {
-      alert("Voice search is not supported in this browser. Please use Chrome or Edge.");
+      alert("Voice search is not supported in this browser. Try Chrome or Edge.");
     }
   };
 
   return (
-    <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 min-h-screen space-y-10">
+    <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 min-h-screen space-y-12">
       
-      {/* Header Section with Working Search Bar */}
+      {/* 1. Header Section with Search Bar */}
       <div className="bg-[#0f172a] p-8 md:p-12 rounded-3xl border border-slate-800 shadow-xl flex flex-col lg:flex-row justify-between items-center gap-8">
         <div className="flex-1 text-center lg:text-left">
           <span className="bg-orange-500/10 text-orange-400 text-xs font-bold px-4 py-1.5 rounded-full mb-4 inline-block border border-orange-500/20 uppercase tracking-wider">
@@ -105,7 +106,7 @@ export default function PincodesHubPage() {
           </p>
         </div>
 
-        {/* Search Bar with Mic Icon */}
+        {/* The Search Bar with Mic Icon */}
         <div className="w-full lg:w-[450px]">
           <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -125,7 +126,6 @@ export default function PincodesHubPage() {
               className={`absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-slate-500 hover:text-orange-400'}`}
               title="Click to use voice search"
             >
-              {/* Mic Icon */}
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
               </svg>
@@ -134,7 +134,7 @@ export default function PincodesHubPage() {
         </div>
       </div>
 
-      {/* Show Search Results OR States Grid */}
+      {/* 2. Show Search Results OR States Grid */}
       {searchQuery.length > 2 ? (
         <div className="space-y-6">
           <h2 className="text-2xl font-bold text-white border-b border-slate-800 pb-4">
@@ -148,6 +148,7 @@ export default function PincodesHubPage() {
           ) : searchResults.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {searchResults.map((item, index) => (
+                 /* 🚀 Programmatic SEO & Internal Linking implemented here */
                  <Link 
                   key={index}
                   href={`/pin-codes/${encodeURIComponent(item.state_name)}/${encodeURIComponent(item.district)}/${item.pincode}`}
@@ -174,13 +175,13 @@ export default function PincodesHubPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 bg-slate-900/50 rounded-2xl border border-slate-800">
+            <div className="text-center py-12 bg-[#0f172a] rounded-2xl border border-slate-800">
               <p className="text-slate-400">No results found for "{searchQuery}". Try a different location or PIN code.</p>
             </div>
           )}
         </div>
       ) : (
-        /* Original States Grid (Programmatic SEO Links) */
+        /* 3. States Grid (Programmatic SEO Routes) */
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {INDIAN_STATES.map((stateName, index) => (
             <Link 
