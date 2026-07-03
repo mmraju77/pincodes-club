@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import './globals.css';
-import { LanguageProvider } from '@/src/context/LanguageContext'; // ఇక్కడ మళ్ళీ యాడ్ చేశాం
+import { LanguageProvider } from '@/src/context/LanguageContext'; 
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import AIChatbot from '@/components/AIChatbot';
@@ -20,7 +21,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-[#0f172a] text-slate-200 font-sans flex flex-col" suppressHydrationWarning>
-        {/* ఇక్కడ LanguageProvider ని మళ్ళీ కనెక్ట్ చేశాం */}
         <LanguageProvider>
           
           <GoogleTranslate />
@@ -30,6 +30,16 @@ export default function RootLayout({
           <main className="flex-grow w-full">
             {children}
           </main>
+
+          {/* PHASE 12: SEO Authority Links (About, Contact, Privacy, Disclaimer) */}
+          <div className="border-t border-slate-800/50 bg-[#0f172a]">
+            <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 flex flex-wrap justify-center gap-6 text-sm text-slate-400 font-medium">
+              <Link href="/about" className="hover:text-orange-400 transition-colors">About Us</Link>
+              <Link href="/contact" className="hover:text-orange-400 transition-colors">Contact</Link>
+              <Link href="/privacy-policy" className="hover:text-orange-400 transition-colors">Privacy Policy</Link>
+              <Link href="/disclaimer" className="hover:text-orange-400 transition-colors">Disclaimer</Link>
+            </div>
+          </div>
 
           <Footer />
           <AIChatbot />
