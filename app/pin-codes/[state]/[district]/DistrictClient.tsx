@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../../../../lib/supabase';
 
 export default function DistrictClient() {
   const [pincodesList, setPincodesList] = useState<any[]>([]);

@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+
+// Changed path to fix VS Code import error
+import { supabase } from '../../../lib/supabase';
 
 export default function StateClient() {
   const [districtsList, setDistrictsList] = useState<string[]>([]);

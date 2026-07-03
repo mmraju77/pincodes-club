@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Metadata } from 'next';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../../../../../lib/supabase';
 
 // PHASE 11: AUTOMATION - Dynamic SEO Metadata Generation
 export async function generateMetadata(props: any): Promise<Metadata> {
