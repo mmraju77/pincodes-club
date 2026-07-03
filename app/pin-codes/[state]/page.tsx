@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -14,7 +13,6 @@ export default function StateDistrictsPage(props: any) {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Extract the state parameter from URL
   const decodedState = props.params?.state ? decodeURIComponent(props.params.state) : '';
 
   useEffect(() => {
@@ -26,28 +24,21 @@ export default function StateDistrictsPage(props: any) {
   const fetchDistricts = async (stateName: string) => {
     setIsLoading(true);
     
-    // Attempt 1: Fetch using 'state_name' with wildcards (%) to ignore extra spaces in database
+    // Updated to match your exact database columns: 'districtname', 'statename', 'circlename'
     const { data, error } = await supabase
       .from('pincodes')
-      .select('district')
-      .ilike('state_name', `%${stateName}%`)
-      .order('district');
+      .select('districtname')
+      .or(`statename.ilike.%${stateName}%,circlename.ilike.%${stateName}%`)
+      .order('districtname');
+    
+    if (error) {
+      console.error("Database Error:", error);
+    }
     
     if (data && data.length > 0) {
-      const uniqueDistricts = Array.from(new Set(data.map(d => d.district).filter(Boolean)));
+      // Extracting the 'districtname' column perfectly
+      const uniqueDistricts = Array.from(new Set(data.map(d => d.districtname).filter(Boolean)));
       setDistrictsList(uniqueDistricts as string[]);
-    } else {
-      // Attempt 2: Fallback just in case the Supabase column is named 'state' instead of 'state_name'
-      const { data: fallbackData } = await supabase
-        .from('pincodes')
-        .select('district')
-        .ilike('state', `%${stateName}%`)
-        .order('district');
-        
-      if (fallbackData && fallbackData.length > 0) {
-        const uniqueDistricts = Array.from(new Set(fallbackData.map(d => d.district).filter(Boolean)));
-        setDistrictsList(uniqueDistricts as string[]);
-      }
     }
     
     setIsLoading(false);
@@ -60,7 +51,6 @@ export default function StateDistrictsPage(props: any) {
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 min-h-screen space-y-10">
       
-      {/* Header & Breadcrumbs */}
       <div className="text-center mb-8">
         <h1 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">
           Districts in {decodedState.toUpperCase()}
@@ -79,7 +69,6 @@ export default function StateDistrictsPage(props: any) {
           </span>
         </div>
 
-        {/* Local Search for Districts */}
         <div className="w-full md:w-72">
           <input 
             type="text" 
@@ -133,7 +122,6 @@ export default function StateDistrictsPage(props: any) {
           )}
         </>
       )}
-
     </div>
   );
 }

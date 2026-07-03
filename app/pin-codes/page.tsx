@@ -42,18 +42,15 @@ export default function PincodesHubPage() {
     try {
       let q = supabase.from('pincodes').select('*').limit(20);
 
-      // 🚀 ERROR FIX: నెంబర్ అయితే పిన్ కోడ్ లో వెతుకుతుంది, పదం అయితే ఊరు పేరులో వెతుకుతుంది.
+      // Updated to match your exact database columns: 'officename', 'districtname'
       if (/^\d+$/.test(query)) {
         q = q.eq('pincode', Number(query));
       } else {
-        q = q.or(`office_name.ilike.%${query}%,district.ilike.%${query}%`);
+        q = q.or(`officename.ilike.%${query}%,districtname.ilike.%${query}%`);
       }
 
       const { data, error } = await q;
 
-      if (error) {
-        console.error("Search Error:", error);
-      }
       if (data) {
         setSearchResults(data);
       }
@@ -92,7 +89,6 @@ export default function PincodesHubPage() {
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 min-h-screen space-y-12">
       
-      {/* 1. Header Section with Search Bar */}
       <div className="bg-[#0f172a] p-8 md:p-12 rounded-3xl border border-slate-800 shadow-xl flex flex-col lg:flex-row justify-between items-center gap-8">
         <div className="flex-1 text-center lg:text-left">
           <span className="bg-orange-500/10 text-orange-400 text-xs font-bold px-4 py-1.5 rounded-full mb-4 inline-block border border-orange-500/20 uppercase tracking-wider">
@@ -106,7 +102,6 @@ export default function PincodesHubPage() {
           </p>
         </div>
 
-        {/* The Search Bar with Mic Icon */}
         <div className="w-full lg:w-[450px]">
           <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -134,7 +129,6 @@ export default function PincodesHubPage() {
         </div>
       </div>
 
-      {/* 2. Show Search Results OR States Grid */}
       {searchQuery.length > 2 ? (
         <div className="space-y-6">
           <h2 className="text-2xl font-bold text-white border-b border-slate-800 pb-4">
@@ -148,27 +142,26 @@ export default function PincodesHubPage() {
           ) : searchResults.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {searchResults.map((item, index) => (
-                 /* 🚀 Programmatic SEO & Internal Linking implemented here */
                  <Link 
                   key={index}
-                  href={`/pin-codes/${encodeURIComponent(item.state_name)}/${encodeURIComponent(item.district)}/${item.pincode}`}
+                  href={`/pin-codes/${encodeURIComponent(item.statename)}/${encodeURIComponent(item.districtname)}/${item.pincode}`}
                   className="group block h-full"
                 >
                   <div className="bg-[#0f172a] p-6 rounded-2xl border border-slate-800 hover:border-orange-500/50 transition-all cursor-pointer h-full shadow-lg flex flex-col">
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <h3 className="text-xl font-bold text-white group-hover:text-orange-400 transition-colors">
-                          {item.office_name}
+                          {item.officename}
                         </h3>
-                        <span className="text-xs text-slate-400">{item.office_type || 'POST OFFICE'}</span>
+                        <span className="text-xs text-slate-400">{item.officetype || 'POST OFFICE'}</span>
                       </div>
                       <span className="bg-orange-500 text-white font-black px-3 py-1 rounded-lg">
                         {item.pincode}
                       </span>
                     </div>
                     <div className="mt-auto text-sm text-slate-400">
-                      <p>District: <span className="text-slate-200">{item.district}</span></p>
-                      <p>State: <span className="text-slate-200">{item.state_name}</span></p>
+                      <p>District: <span className="text-slate-200">{item.districtname}</span></p>
+                      <p>State: <span className="text-slate-200">{item.statename}</span></p>
                     </div>
                   </div>
                 </Link>
@@ -181,7 +174,6 @@ export default function PincodesHubPage() {
           )}
         </div>
       ) : (
-        /* 3. States Grid (Programmatic SEO Routes) */
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {INDIAN_STATES.map((stateName, index) => (
             <Link 
@@ -209,7 +201,6 @@ export default function PincodesHubPage() {
           ))}
         </div>
       )}
-
     </div>
   );
 }
