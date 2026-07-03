@@ -1,10 +1,32 @@
 import Link from 'next/link';
+import { Metadata } from 'next';
 import { createClient } from '@supabase/supabase-js';
 
+// Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// PHASE 11: AUTOMATION - Dynamic SEO Metadata Generation
+export async function generateMetadata(props: any): Promise<Metadata> {
+  const resolvedParams = await props.params;
+  const stateName = resolvedParams?.state ? decodeURIComponent(resolvedParams.state).toUpperCase() : '';
+  const districtName = resolvedParams?.district ? decodeURIComponent(resolvedParams.district).toUpperCase() : '';
+  const currentPincode = resolvedParams?.pincode || '';
+
+  return {
+    title: `${currentPincode} PIN Code - ${districtName}, ${stateName} Post Office Details`,
+    description: `Find complete postal and banking details for PIN Code ${currentPincode} located in ${districtName}, ${stateName}. Automatically updated directory.`,
+    keywords: `${currentPincode}, ${currentPincode} pin code, ${districtName} district pincodes, ${stateName} postal codes, post office near me, ifsc codes`,
+    openGraph: {
+      title: `${currentPincode} PIN Code Information`,
+      description: `Complete details for ${currentPincode} in ${districtName}, ${stateName}.`,
+      siteName: 'Pincode Club',
+    },
+  };
+}
+
+// MAIN PAGE COMPONENT
 export default async function PincodeDetailPage(props: any) {
   const resolvedParams = await props.params;
   
