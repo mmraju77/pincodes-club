@@ -2,18 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-export default function StateDistrictsPage(props: any) {
+export default function StateDistrictsPage() {
   const [districtsList, setDistrictsList] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const decodedState = props.params?.state ? decodeURIComponent(props.params.state) : '';
+  // 1. Using useParams (The perfect way for Next.js App Router Client Components)
+  const params = useParams();
+  const rawState = params?.state as string;
+  const decodedState = rawState ? decodeURIComponent(rawState) : '';
 
   useEffect(() => {
     if (decodedState) {
@@ -23,22 +28,32 @@ export default function StateDistrictsPage(props: any) {
 
   const fetchDistricts = async (stateName: string) => {
     setIsLoading(true);
+    setErrorMessage('');
     
-    // Updated to match your exact database columns: 'districtname', 'statename', 'circlename'
-    const { data, error } = await supabase
-      .from('pincodes')
-      .select('districtname')
-      .or(`statename.ilike.%${stateName}%,circlename.ilike.%${stateName}%`)
-      .order('districtname');
-    
-    if (error) {
-      console.error("Database Error:", error);
-    }
-    
-    if (data && data.length > 0) {
-      // Extracting the 'districtname' column perfectly
-      const uniqueDistricts = Array.from(new Set(data.map(d => d.districtname).filter(Boolean)));
-      setDistrictsList(uniqueDistricts as string[]);
+    try {
+      // 2. We use 'circlename' because we confirmed it exists in your Supabase screenshot
+      const { data, error } = await supabase
+        .from('pincodes')
+        .select('*') // Selecting all to safely find whatever the district column is named
+        .ilike('circlename', `%${stateName}%`)
+        .limit(1000); // Fetching a large sample to extract unique districts
+      
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        // 3. Bulletproof check: It will find the district whether the column is named districtname, Districtname, or district
+        const uniqueDistricts = Array.from(
+          new Set(data.map((d: any) => d.districtname || d.district || d.Districtname).filter(Boolean))
+        );
+        
+        // Sorting alphabetically
+        uniqueDistricts.sort();
+        setDistrictsList(uniqueDistricts as string[]);
+      }
+    } catch (err: any) {
+      console.error("Database Error:", err.message);
+      setErrorMessage(err.message);
+      alert("Supabase Database Error: " + err.message);
     }
     
     setIsLoading(false);
@@ -56,6 +71,13 @@ export default function StateDistrictsPage(props: any) {
           Districts in {decodedState.toUpperCase()}
         </h1>
         <p className="text-slate-400 text-lg">Select a district to explore PIN codes.</p>
+        
+        {/* Error Display to help debug if it fails again */}
+        {errorMessage && (
+          <p className="text-red-400 mt-4 bg-red-500/10 p-3 rounded-lg border border-red-500/20 inline-block">
+            Error: {errorMessage}
+          </p>
+        )}
       </div>
 
       <div className="flex flex-col md:flex-row justify-between items-center gap-6 bg-[#0f172a] p-4 rounded-xl border border-slate-800">
@@ -117,7 +139,7 @@ export default function StateDistrictsPage(props: any) {
           ) : (
             <div className="text-center py-24 bg-[#0f172a] rounded-3xl border border-slate-800">
               <h3 className="text-xl font-bold text-white mb-2">No districts found</h3>
-              <p className="text-slate-400">Try adjusting your search query.</p>
+              <p className="text-slate-400">Please verify if data exists for this state in your database.</p>
             </div>
           )}
         </>
