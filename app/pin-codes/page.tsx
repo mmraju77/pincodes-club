@@ -25,6 +25,7 @@ export default function PincodesPage() {
   const [districtsList, setDistrictsList] = useState<string[]>([]);
   const [resultsData, setResultsData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showStateList, setShowStateList] = useState(true);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -36,6 +37,11 @@ export default function PincodesPage() {
       setSelectedDistrict('');
       setResultsData([]);
       setCurrentPage(1);
+      setShowStateList(false);
+    } else {
+      setShowStateList(true);
+      setDistrictsList([]);
+      setResultsData([]);
     }
   }, [selectedState]);
 
@@ -80,141 +86,187 @@ export default function PincodesPage() {
   const currentResults = resultsData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 min-h-screen">
+    <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 min-h-screen space-y-8">
       
-      {/* Selection Path */}
-      <div className="mb-10 text-center">
-        <h1 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">
-          Browse PIN Codes
+      {/* Dynamic Header */}
+      <div className="text-center bg-slate-800/40 p-10 rounded-3xl border border-slate-700/50 backdrop-blur-sm shadow-xl">
+        <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-4 tracking-tight">
+          {selectedDistrict ? `${selectedDistrict} PIN Codes` : 
+           selectedState ? `${selectedState} Districts` : 
+           "Directory of India PIN Codes"}
         </h1>
-        <p className="text-slate-400 text-lg">Select your State and District to explore postal details.</p>
+        <p className="text-slate-300 text-lg max-w-2xl mx-auto">
+          {selectedDistrict ? `Explore all post offices and pincodes in ${selectedDistrict}.` : 
+           selectedState ? `Select a district from ${selectedState} to view pincodes.` : 
+           "Find accurate postal codes for any state, district, or village in India."}
+        </p>
       </div>
 
-      <div className="bg-slate-900/50 p-6 md:p-8 rounded-3xl border border-slate-800 mb-12 shadow-xl">
-        <div className="flex flex-col md:flex-row gap-6">
-          {/* State Selector */}
-          <div className="flex-1">
-            <label className="block text-sm font-bold text-slate-400 uppercase mb-2">1. Select State</label>
-            <select
-              value={selectedState}
-              onChange={(e) => setSelectedState(e.target.value)}
-              className="w-full bg-slate-800 text-white border border-slate-700 rounded-xl p-4 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all outline-none"
+      {/* Navigation Breadcrumbs / Filters */}
+      <div className="flex flex-wrap items-center gap-3 bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+        <button 
+          onClick={() => { setSelectedState(''); setSelectedDistrict(''); }}
+          className="px-4 py-2 bg-slate-800 hover:bg-orange-500 hover:text-white text-slate-300 font-bold rounded-lg transition-colors text-sm"
+        >
+          ALL STATES
+        </button>
+        
+        {selectedState && (
+          <>
+            <span className="text-slate-500 font-bold">&rarr;</span>
+            <button 
+              onClick={() => setSelectedDistrict('')}
+              className={`px-4 py-2 font-bold rounded-lg transition-colors text-sm ${!selectedDistrict ? 'bg-orange-500 text-white' : 'bg-slate-800 hover:bg-orange-500 hover:text-white text-slate-300'}`}
             >
-              <option value="">-- Choose State --</option>
-              {INDIAN_STATES.map((state, i) => (
-                <option key={i} value={state}>{state}</option>
-              ))}
-            </select>
-          </div>
+              {selectedState.toUpperCase()}
+            </button>
+          </>
+        )}
 
-          {/* District Selector */}
-          <div className="flex-1">
-            <label className="block text-sm font-bold text-slate-400 uppercase mb-2">2. Select District</label>
-            <select
-              value={selectedDistrict}
-              onChange={(e) => setSelectedDistrict(e.target.value)}
-              disabled={!selectedState || districtsList.length === 0}
-              className="w-full bg-slate-800 text-white border border-slate-700 rounded-xl p-4 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all outline-none disabled:opacity-50"
-            >
-              <option value="">-- Choose District --</option>
-              {districtsList.map((dist, i) => (
-                <option key={i} value={dist}>{dist}</option>
-              ))}
-            </select>
-          </div>
-        </div>
+        {selectedDistrict && (
+          <>
+            <span className="text-slate-500 font-bold">&rarr;</span>
+            <span className="px-4 py-2 bg-orange-500 text-white font-bold rounded-lg text-sm">
+              {selectedDistrict.toUpperCase()}
+            </span>
+          </>
+        )}
       </div>
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="py-24 flex justify-center items-center">
-          <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+      {/* Loading Indicator */}
+      {isLoading ? (
+        <div className="py-24 text-center">
+          <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-400 font-medium">Fetching data from server...</p>
         </div>
-      )}
-
-      {/* Results Grid */}
-      {!isLoading && currentResults.length > 0 && (
-        <div className="space-y-8">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-            <h2 className="text-2xl font-bold text-white">
-              <span className="text-orange-500">{resultsData.length}</span> Post Offices found
-            </h2>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {currentResults.map((item, index) => (
-              // 🚀 లింక్ ఇక్కడే యాడ్ చేశాను 
-              <Link 
-                key={index}
-                href={`/pin-codes/${encodeURIComponent(item.state_name)}/${encodeURIComponent(item.district)}/${item.pincode}`}
-                className="group block"
-              >
-                <div className="bg-slate-900/40 p-6 rounded-2xl border border-slate-800 hover:border-orange-500/50 transition-all cursor-pointer h-full relative overflow-hidden">
-                  
-                  {/* Decorative background accent on hover */}
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-bl-full -mr-16 -mt-16 transition-transform group-hover:scale-150"></div>
-
-                  <div className="flex justify-between items-start mb-6">
-                    <div>
-                      <h3 className="text-xl font-bold text-white mb-1 group-hover:text-orange-400 transition-colors">
-                        {item.office_name}
-                      </h3>
-                      <span className="text-xs font-bold px-2 py-1 bg-slate-800 text-slate-400 rounded-md">
-                        {item.office_type || 'PO'}
-                      </span>
-                    </div>
-                    <span className="bg-orange-500 text-white font-black px-4 py-2 rounded-xl shadow-lg shadow-orange-500/20 text-lg">
-                      {item.pincode}
-                    </span>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4 text-sm mt-auto">
-                    <div>
-                      <p className="text-slate-500 font-medium uppercase text-xs">District</p>
-                      <p className="text-slate-300 font-bold truncate">{item.district}</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-500 font-medium uppercase text-xs">State</p>
-                      <p className="text-slate-300 font-bold truncate">{item.state_name}</p>
-                    </div>
-                  </div>
-                  
+      ) : (
+        <>
+          {/* 1. Show States Grid if no state is selected */}
+          {showStateList && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {INDIAN_STATES.map((stateName, index) => (
+                <div 
+                  key={index} 
+                  onClick={() => setSelectedState(stateName)}
+                  className="bg-slate-900/40 border border-slate-800 p-4 rounded-xl hover:border-orange-500/50 hover:bg-slate-800/80 cursor-pointer transition-all group text-center"
+                >
+                  <span className="text-sm font-bold text-slate-300 group-hover:text-orange-400 transition-colors">
+                    {stateName}
+                  </span>
                 </div>
-              </Link>
-            ))}
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-4 pt-8">
-              <button 
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="px-6 py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-bold rounded-xl transition-colors"
-              >
-                Previous
-              </button>
-              <span className="text-slate-400 font-medium bg-slate-900/50 px-6 py-3 rounded-xl border border-slate-800">
-                Page <span className="text-white font-bold">{currentPage}</span> of {totalPages}
-              </span>
-              <button 
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="px-6 py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-bold rounded-xl transition-colors"
-              >
-                Next
-              </button>
+              ))}
             </div>
           )}
-        </div>
-      )}
 
-      {/* Empty State */}
-      {!isLoading && selectedDistrict && currentResults.length === 0 && (
-        <div className="text-center py-24 bg-slate-900/30 rounded-3xl border border-slate-800 border-dashed">
-          <svg className="w-16 h-16 text-slate-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-          <p className="text-slate-400 text-lg">No post offices found for the selected area.</p>
-        </div>
+          {/* 2. Show Districts Grid if state is selected but no district */}
+          {selectedState && !selectedDistrict && districtsList.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {districtsList.map((districtName, index) => (
+                <div 
+                  key={index} 
+                  onClick={() => setSelectedDistrict(districtName)}
+                  className="bg-slate-900/40 border border-slate-800 p-4 rounded-xl hover:border-orange-500/50 hover:bg-slate-800/80 cursor-pointer transition-all group text-center flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4 text-slate-500 group-hover:text-orange-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m3-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                  <span className="text-sm font-bold text-slate-300 group-hover:text-white transition-colors truncate">
+                    {districtName}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 3. Show Pincode Cards if district is selected */}
+          {selectedDistrict && currentResults.length > 0 && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center bg-slate-900/30 p-4 rounded-xl border border-slate-800/50">
+                <span className="text-slate-400 font-medium">
+                  Showing <strong className="text-white">{(currentPage - 1) * itemsPerPage + 1}</strong> to <strong className="text-white">{Math.min(currentPage * itemsPerPage, resultsData.length)}</strong> of <strong className="text-orange-400">{resultsData.length}</strong> entries
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {currentResults.map((item, index) => (
+                  // 🚀 లింక్ ఇక్కడ యాడ్ చేశాను
+                  <Link 
+                    key={index}
+                    href={`/pin-codes/${encodeURIComponent(item.state_name)}/${encodeURIComponent(item.district)}/${item.pincode}`}
+                    className="group block h-full"
+                  >
+                    <div className="bg-slate-900/40 p-6 rounded-2xl border border-slate-800 hover:border-orange-500/50 transition-all cursor-pointer h-full relative overflow-hidden shadow-lg hover:shadow-orange-500/10 flex flex-col">
+                      
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-bl-full -mr-16 -mt-16 transition-transform group-hover:scale-150"></div>
+
+                      <div className="flex justify-between items-start mb-6">
+                        <div className="pr-4">
+                          <h3 className="text-xl font-bold text-white mb-2 group-hover:text-orange-400 transition-colors leading-tight">
+                            {item.office_name}
+                          </h3>
+                          <span className="text-xs font-bold px-2 py-1 bg-slate-800 text-slate-400 rounded-md uppercase">
+                            {item.office_type || 'POST OFFICE'}
+                          </span>
+                        </div>
+                        <span className="bg-gradient-to-br from-orange-400 to-orange-600 text-white font-black px-4 py-2 rounded-xl shadow-lg text-lg flex-shrink-0">
+                          {item.pincode}
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 text-sm mt-auto bg-slate-900/50 p-4 rounded-xl border border-slate-800/50">
+                        <div>
+                          <p className="text-slate-500 font-bold uppercase text-[10px] mb-1">District</p>
+                          <p className="text-slate-300 font-medium truncate">{item.district}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500 font-bold uppercase text-[10px] mb-1">State</p>
+                          <p className="text-slate-300 font-medium truncate">{item.state_name}</p>
+                        </div>
+                      </div>
+                      
+                    </div>
+                  </Link>
+                ))}
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-4 pt-8">
+                  <button 
+                    onClick={() => {
+                      setCurrentPage(p => Math.max(1, p - 1));
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    disabled={currentPage === 1}
+                    className="px-6 py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-bold rounded-xl transition-colors flex items-center gap-2"
+                  >
+                    &larr; Prev
+                  </button>
+                  <span className="text-slate-400 font-medium bg-slate-900/50 px-6 py-3 rounded-xl border border-slate-800">
+                    <span className="text-white font-bold">{currentPage}</span> / {totalPages}
+                  </span>
+                  <button 
+                    onClick={() => {
+                      setCurrentPage(p => Math.min(totalPages, p + 1));
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    disabled={currentPage === totalPages}
+                    className="px-6 py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-bold rounded-xl transition-colors flex items-center gap-2"
+                  >
+                    Next &rarr;
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Empty State when no results found */}
+          {!isLoading && selectedDistrict && resultsData.length === 0 && (
+            <div className="text-center py-24 bg-slate-900/30 rounded-3xl border border-slate-800 border-dashed">
+              <svg className="w-16 h-16 text-slate-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              <h3 className="text-xl font-bold text-white mb-2">No Post Offices Found</h3>
+              <p className="text-slate-400">We couldn't find any pincode data for {selectedDistrict}.</p>
+            </div>
+          )}
+        </>
       )}
 
     </div>
