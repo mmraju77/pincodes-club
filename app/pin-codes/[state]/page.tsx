@@ -4,18 +4,18 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase Setup
+// Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-export default function StateDistrictsPage({ params }: any) {
+export default function StateDistrictsPage(props: any) {
   const [districtsList, setDistrictsList] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Safely decoding the state parameter from the URL
-  const decodedState = params?.state ? decodeURIComponent(params.state) : '';
+  // Extract the state parameter from URL
+  const decodedState = props.params?.state ? decodeURIComponent(props.params.state) : '';
 
   useEffect(() => {
     if (decodedState) {
@@ -25,24 +25,34 @@ export default function StateDistrictsPage({ params }: any) {
 
   const fetchDistricts = async (stateName: string) => {
     setIsLoading(true);
-    // Using .ilike for case-insensitive matching
+    
+    // Attempt 1: Fetch using 'state_name' with wildcards (%) to ignore extra spaces in database
     const { data, error } = await supabase
       .from('pincodes')
       .select('district')
-      .ilike('state_name', stateName)
+      .ilike('state_name', `%${stateName}%`)
       .order('district');
     
-    if (error) console.error("Error fetching districts:", error);
-    
-    if (data) {
-      // Removing duplicates and empty values
+    if (data && data.length > 0) {
       const uniqueDistricts = Array.from(new Set(data.map(d => d.district).filter(Boolean)));
       setDistrictsList(uniqueDistricts as string[]);
+    } else {
+      // Attempt 2: Fallback just in case the Supabase column is named 'state' instead of 'state_name'
+      const { data: fallbackData } = await supabase
+        .from('pincodes')
+        .select('district')
+        .ilike('state', `%${stateName}%`)
+        .order('district');
+        
+      if (fallbackData && fallbackData.length > 0) {
+        const uniqueDistricts = Array.from(new Set(fallbackData.map(d => d.district).filter(Boolean)));
+        setDistrictsList(uniqueDistricts as string[]);
+      }
     }
+    
     setIsLoading(false);
   };
 
-  // Filtered districts for the local search bar
   const filteredDistricts = districtsList.filter(d => 
     d.toLowerCase().includes(searchQuery.toLowerCase())
   );
