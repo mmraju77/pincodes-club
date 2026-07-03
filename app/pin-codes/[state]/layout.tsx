@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 
-export async function generateMetadata(props: any): Promise<Metadata> {
+// Generate SEO Metadata for the State Page
+export async function generateMetadata(props: { params: Promise<{ state: string }> }): Promise<Metadata> {
   const resolvedParams = await props.params;
   const stateName = resolvedParams?.state ? decodeURIComponent(resolvedParams.state).toUpperCase() : 'INDIA';
 
