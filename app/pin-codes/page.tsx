@@ -27,7 +27,6 @@ export default function PincodesPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showStateList, setShowStateList] = useState(true);
 
-  // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
@@ -54,7 +53,7 @@ export default function PincodesPage() {
 
   const fetchDistricts = async (state: string) => {
     setIsLoading(true);
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('pincodes')
       .select('district')
       .eq('state_name', state)
@@ -69,7 +68,7 @@ export default function PincodesPage() {
 
   const fetchPincodes = async (state: string, district: string) => {
     setIsLoading(true);
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('pincodes')
       .select('*')
       .eq('state_name', state)
@@ -88,125 +87,134 @@ export default function PincodesPage() {
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 min-h-screen space-y-8">
       
-      {/* Dynamic Header */}
-      <div className="text-center bg-slate-800/40 p-10 rounded-3xl border border-slate-700/50 backdrop-blur-sm shadow-xl">
+      {/* Header Section */}
+      <div className="text-center mb-12">
         <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-4 tracking-tight">
           {selectedDistrict ? `${selectedDistrict} PIN Codes` : 
            selectedState ? `${selectedState} Districts` : 
            "Directory of India PIN Codes"}
         </h1>
-        <p className="text-slate-300 text-lg max-w-2xl mx-auto">
+        <p className="text-slate-400 text-lg max-w-2xl mx-auto">
           {selectedDistrict ? `Explore all post offices and pincodes in ${selectedDistrict}.` : 
            selectedState ? `Select a district from ${selectedState} to view pincodes.` : 
            "Find accurate postal codes for any state, district, or village in India."}
         </p>
       </div>
 
-      {/* Navigation Breadcrumbs / Filters */}
-      <div className="flex flex-wrap items-center gap-3 bg-slate-900/50 p-4 rounded-xl border border-slate-800">
-        <button 
-          onClick={() => { setSelectedState(''); setSelectedDistrict(''); }}
-          className="px-4 py-2 bg-slate-800 hover:bg-orange-500 hover:text-white text-slate-300 font-bold rounded-lg transition-colors text-sm"
-        >
-          ALL STATES
-        </button>
-        
-        {selectedState && (
-          <>
-            <span className="text-slate-500 font-bold">&rarr;</span>
-            <button 
-              onClick={() => setSelectedDistrict('')}
-              className={`px-4 py-2 font-bold rounded-lg transition-colors text-sm ${!selectedDistrict ? 'bg-orange-500 text-white' : 'bg-slate-800 hover:bg-orange-500 hover:text-white text-slate-300'}`}
-            >
-              {selectedState.toUpperCase()}
-            </button>
-          </>
-        )}
+      {/* Navigation Breadcrumb */}
+      {(selectedState || selectedDistrict) && (
+        <div className="flex flex-wrap items-center gap-3 bg-slate-900/50 p-4 rounded-xl border border-slate-800 mb-8">
+          <button 
+            onClick={() => { setSelectedState(''); setSelectedDistrict(''); }}
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg transition-colors text-sm"
+          >
+            ALL STATES
+          </button>
+          
+          {selectedState && (
+            <>
+              <span className="text-slate-600 font-bold">&rarr;</span>
+              <button 
+                onClick={() => setSelectedDistrict('')}
+                className={`px-4 py-2 font-bold rounded-lg transition-colors text-sm ${!selectedDistrict ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'}`}
+              >
+                {selectedState.toUpperCase()}
+              </button>
+            </>
+          )}
 
-        {selectedDistrict && (
-          <>
-            <span className="text-slate-500 font-bold">&rarr;</span>
-            <span className="px-4 py-2 bg-orange-500 text-white font-bold rounded-lg text-sm">
-              {selectedDistrict.toUpperCase()}
-            </span>
-          </>
-        )}
-      </div>
+          {selectedDistrict && (
+            <>
+              <span className="text-slate-600 font-bold">&rarr;</span>
+              <span className="px-4 py-2 bg-blue-600/20 text-blue-400 border border-blue-500/30 font-bold rounded-lg text-sm">
+                {selectedDistrict.toUpperCase()}
+              </span>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Loading Indicator */}
       {isLoading ? (
         <div className="py-24 text-center">
-          <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400 font-medium">Fetching data from server...</p>
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-400 font-medium">Fetching data...</p>
         </div>
       ) : (
         <>
-          {/* 1. Show States Grid if no state is selected */}
+          {/* 1. Show States Grid (IFSC Style Cards) */}
           {showStateList && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {INDIAN_STATES.map((stateName, index) => (
                 <div 
                   key={index} 
                   onClick={() => setSelectedState(stateName)}
-                  className="bg-slate-900/40 border border-slate-800 p-4 rounded-xl hover:border-orange-500/50 hover:bg-slate-800/80 cursor-pointer transition-all group text-center"
+                  className="bg-[#0f172a] border border-slate-800 p-8 rounded-2xl flex flex-col items-center justify-center hover:bg-slate-800/60 cursor-pointer transition-all group shadow-lg"
                 >
-                  <span className="text-sm font-bold text-slate-300 group-hover:text-orange-400 transition-colors">
+                  <div className="mb-4 text-slate-400 group-hover:text-white transition-colors">
+                    <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-white font-bold text-lg mb-6 text-center">
                     {stateName}
+                  </h3>
+                  <span className="bg-blue-600/20 text-blue-400 text-xs font-bold px-4 py-2 rounded-full flex items-center gap-2 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                    Select State &rarr;
                   </span>
                 </div>
               ))}
             </div>
           )}
 
-          {/* 2. Show Districts Grid if state is selected but no district */}
+          {/* 2. Show Districts Grid (IFSC Style Cards) */}
           {selectedState && !selectedDistrict && districtsList.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {districtsList.map((districtName, index) => (
                 <div 
                   key={index} 
                   onClick={() => setSelectedDistrict(districtName)}
-                  className="bg-slate-900/40 border border-slate-800 p-4 rounded-xl hover:border-orange-500/50 hover:bg-slate-800/80 cursor-pointer transition-all group text-center flex items-center justify-center gap-2"
+                  className="bg-[#0f172a] border border-slate-800 p-8 rounded-2xl flex flex-col items-center justify-center hover:bg-slate-800/60 cursor-pointer transition-all group shadow-lg"
                 >
-                  <svg className="w-4 h-4 text-slate-500 group-hover:text-orange-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m3-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                  <span className="text-sm font-bold text-slate-300 group-hover:text-white transition-colors truncate">
+                  <div className="mb-4 text-slate-400 group-hover:text-white transition-colors">
+                    <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m3-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                  </div>
+                  <h3 className="text-white font-bold text-lg mb-6 text-center">
                     {districtName}
+                  </h3>
+                  <span className="bg-blue-600/20 text-blue-400 text-xs font-bold px-4 py-2 rounded-full flex items-center gap-2 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                    Select District &rarr;
                   </span>
                 </div>
               ))}
             </div>
           )}
 
-          {/* 3. Show Pincode Cards if district is selected */}
+          {/* 3. Show Pincode Cards */}
           {selectedDistrict && currentResults.length > 0 && (
             <div className="space-y-6">
-              <div className="flex justify-between items-center bg-slate-900/30 p-4 rounded-xl border border-slate-800/50">
-                <span className="text-slate-400 font-medium">
-                  Showing <strong className="text-white">{(currentPage - 1) * itemsPerPage + 1}</strong> to <strong className="text-white">{Math.min(currentPage * itemsPerPage, resultsData.length)}</strong> of <strong className="text-orange-400">{resultsData.length}</strong> entries
-                </span>
-              </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {currentResults.map((item, index) => (
-                  // 🚀 లింక్ ఇక్కడ యాడ్ చేశాను
                   <Link 
                     key={index}
                     href={`/pin-codes/${encodeURIComponent(item.state_name)}/${encodeURIComponent(item.district)}/${item.pincode}`}
                     className="group block h-full"
                   >
-                    <div className="bg-slate-900/40 p-6 rounded-2xl border border-slate-800 hover:border-orange-500/50 transition-all cursor-pointer h-full relative overflow-hidden shadow-lg hover:shadow-orange-500/10 flex flex-col">
+                    <div className="bg-[#0f172a] p-6 rounded-2xl border border-slate-800 hover:border-blue-500/50 transition-all cursor-pointer h-full relative overflow-hidden shadow-lg flex flex-col">
                       
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-bl-full -mr-16 -mt-16 transition-transform group-hover:scale-150"></div>
-
                       <div className="flex justify-between items-start mb-6">
                         <div className="pr-4">
-                          <h3 className="text-xl font-bold text-white mb-2 group-hover:text-orange-400 transition-colors leading-tight">
+                          <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-400 transition-colors leading-tight">
                             {item.office_name}
                           </h3>
                           <span className="text-xs font-bold px-2 py-1 bg-slate-800 text-slate-400 rounded-md uppercase">
                             {item.office_type || 'POST OFFICE'}
                           </span>
                         </div>
-                        <span className="bg-gradient-to-br from-orange-400 to-orange-600 text-white font-black px-4 py-2 rounded-xl shadow-lg text-lg flex-shrink-0">
+                        <span className="bg-gradient-to-br from-blue-500 to-blue-700 text-white font-black px-4 py-2 rounded-xl shadow-lg text-lg flex-shrink-0">
                           {item.pincode}
                         </span>
                       </div>
@@ -258,14 +266,6 @@ export default function PincodesPage() {
             </div>
           )}
 
-          {/* Empty State when no results found */}
-          {!isLoading && selectedDistrict && resultsData.length === 0 && (
-            <div className="text-center py-24 bg-slate-900/30 rounded-3xl border border-slate-800 border-dashed">
-              <svg className="w-16 h-16 text-slate-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-              <h3 className="text-xl font-bold text-white mb-2">No Post Offices Found</h3>
-              <p className="text-slate-400">We couldn't find any pincode data for {selectedDistrict}.</p>
-            </div>
-          )}
         </>
       )}
 
