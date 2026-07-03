@@ -1,10 +1,13 @@
-import Link from 'next/link';
-import { Metadata } from 'next';
+'use client';
 
-export const metadata: Metadata = {
-  title: 'India PIN Codes Hub | Pincode Club',
-  description: 'Browse by state, district, and village to find accurate postal codes across India.',
-};
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { createClient } from '@supabase/supabase-js';
+
+// Supabase Setup
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const INDIAN_STATES = [
   "Andaman & Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam",
@@ -18,10 +21,77 @@ const INDIAN_STATES = [
 ];
 
 export default function PincodesHubPage() {
-  return (
-    <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 min-h-screen space-y-12">
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+
+  // Search Functionality
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (searchQuery.length > 2) {
+        performSearch(searchQuery);
+      } else {
+        setSearchResults([]);
+      }
+    }, 500); // Wait 500ms before searching
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
+  const performSearch = async (query: string) => {
+    setIsSearching(true);
+    // Search in office_name, district, or pincode
+    const { data, error } = await supabase
+      .from('pincodes')
+      .select('*')
+      .or(`office_name.ilike.%${query}%,district.ilike.%${query}%,pincode.ilike.%${query}%`)
+      .limit(20);
+
+    if (error) console.error("Search Error:", error);
+    if (data) setSearchResults(data);
+    setIsSearching(false);
+  };
+
+  // Voice Search (Web Speech API)
+  const startListening = () => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
       
-      {/* 1. Header Section with Search Bar (Matching Screenshot 1349) */}
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-IN'; // Set to Indian English
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setSearchQuery(transcript);
+        setIsListening(false);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error("Speech recognition error", event.error);
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.start();
+    } else {
+      alert("Voice search is not supported in this browser. Please use Chrome or Edge.");
+    }
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 min-h-screen space-y-10">
+      
+      {/* Header Section with Working Search Bar */}
       <div className="bg-[#0f172a] p-8 md:p-12 rounded-3xl border border-slate-800 shadow-xl flex flex-col lg:flex-row justify-between items-center gap-8">
         <div className="flex-1 text-center lg:text-left">
           <span className="bg-orange-500/10 text-orange-400 text-xs font-bold px-4 py-1.5 rounded-full mb-4 inline-block border border-orange-500/20 uppercase tracking-wider">
@@ -35,7 +105,7 @@ export default function PincodesHubPage() {
           </p>
         </div>
 
-        {/* The Search Bar with Mic Icon */}
+        {/* Search Bar with Mic Icon */}
         <div className="w-full lg:w-[450px]">
           <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -45,10 +115,16 @@ export default function PincodesHubPage() {
             </div>
             <input 
               type="text" 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search PIN Code, Post Office, City..." 
               className="w-full bg-slate-900/50 text-white border border-slate-700 rounded-2xl pl-12 pr-12 py-4 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder-slate-500"
             />
-            <div className="absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer hover:text-orange-400 text-slate-500 transition-colors">
+            <div 
+              onClick={startListening}
+              className={`absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-slate-500 hover:text-orange-400'}`}
+              title="Click to use voice search"
+            >
               {/* Mic Icon */}
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
@@ -58,39 +134,80 @@ export default function PincodesHubPage() {
         </div>
       </div>
 
-      {/* 2. States Grid (Big Icons, Programmatic SEO Links) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {INDIAN_STATES.map((stateName, index) => (
-          <Link 
-            key={index}
-            href={`/pin-codes/${encodeURIComponent(stateName)}`}
-            className="group block"
-          >
-            <div className="bg-[#0f172a] border border-slate-800 p-8 rounded-3xl flex flex-col items-center justify-center hover:bg-slate-800/80 hover:border-orange-500/30 cursor-pointer transition-all shadow-lg h-full">
-              
-              {/* Location/Post Office Icon */}
-              <div className="mb-5 text-slate-500 group-hover:text-orange-400 transition-colors">
-                <svg className="w-14 h-14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m3-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              </div>
-              
-              <h3 className="text-white font-bold text-xl mb-6 text-center group-hover:text-orange-50 transition-colors">
-                {stateName}
-              </h3>
-              
-              {/* Action Button */}
-              <span className="bg-orange-500/10 border border-orange-500/20 text-orange-400 text-sm font-bold px-5 py-2 rounded-full flex items-center gap-2 group-hover:bg-orange-500 group-hover:text-white transition-all">
-                Select State 
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                </svg>
-              </span>
-              
+      {/* Show Search Results OR States Grid */}
+      {searchQuery.length > 2 ? (
+        <div className="space-y-6">
+          <h2 className="text-2xl font-bold text-white border-b border-slate-800 pb-4">
+            Search Results for <span className="text-orange-400">"{searchQuery}"</span>
+          </h2>
+          
+          {isSearching ? (
+             <div className="py-12 text-center">
+               <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+             </div>
+          ) : searchResults.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {searchResults.map((item, index) => (
+                 <Link 
+                  key={index}
+                  href={`/pin-codes/${encodeURIComponent(item.state_name)}/${encodeURIComponent(item.district)}/${item.pincode}`}
+                  className="group block h-full"
+                >
+                  <div className="bg-[#0f172a] p-6 rounded-2xl border border-slate-800 hover:border-orange-500/50 transition-all cursor-pointer h-full shadow-lg flex flex-col">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="text-xl font-bold text-white group-hover:text-orange-400 transition-colors">
+                          {item.office_name}
+                        </h3>
+                        <span className="text-xs text-slate-400">{item.office_type || 'POST OFFICE'}</span>
+                      </div>
+                      <span className="bg-orange-500 text-white font-black px-3 py-1 rounded-lg">
+                        {item.pincode}
+                      </span>
+                    </div>
+                    <div className="mt-auto text-sm text-slate-400">
+                      <p>District: <span className="text-slate-200">{item.district}</span></p>
+                      <p>State: <span className="text-slate-200">{item.state_name}</span></p>
+                    </div>
+                  </div>
+                </Link>
+              ))}
             </div>
-          </Link>
-        ))}
-      </div>
+          ) : (
+            <div className="text-center py-12 bg-slate-900/50 rounded-2xl border border-slate-800">
+              <p className="text-slate-400">No results found for "{searchQuery}". Try a different location or PIN code.</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Original States Grid (Programmatic SEO Links) */
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {INDIAN_STATES.map((stateName, index) => (
+            <Link 
+              key={index}
+              href={`/pin-codes/${encodeURIComponent(stateName)}`}
+              className="group block"
+            >
+              <div className="bg-[#0f172a] border border-slate-800 p-8 rounded-3xl flex flex-col items-center justify-center hover:bg-slate-800/80 hover:border-orange-500/30 cursor-pointer transition-all shadow-lg h-full">
+                <div className="mb-5 text-slate-500 group-hover:text-orange-400 transition-colors">
+                  <svg className="w-14 h-14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m3-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                </div>
+                <h3 className="text-white font-bold text-xl mb-6 text-center group-hover:text-orange-50 transition-colors">
+                  {stateName}
+                </h3>
+                <span className="bg-orange-500/10 border border-orange-500/20 text-orange-400 text-sm font-bold px-5 py-2 rounded-full flex items-center gap-2 group-hover:bg-orange-500 group-hover:text-white transition-all">
+                  Select State 
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
 
     </div>
   );
