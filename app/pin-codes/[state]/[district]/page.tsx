@@ -13,11 +13,9 @@ export default function DistrictPincodesPage() {
   const [pincodesList, setPincodesList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Search States
   const [searchQuery, setSearchQuery] = useState('');
   const [isListening, setIsListening] = useState(false);
 
-  // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 30;
 
@@ -37,15 +35,21 @@ export default function DistrictPincodesPage() {
   const fetchPincodes = async (districtName: string) => {
     setIsLoading(true);
     try {
+      // Bulletproof: Fetch by state and filter by javascript to avoid column crash
       const { data, error } = await supabase
         .from('pincodes')
         .select('*')
-        .ilike('districtname', `%${districtName}%`)
-        .order('officename');
+        .ilike('circlename', `%${decodedState}%`)
+        .limit(3000);
       
       if (error) throw error;
       if (data) {
-        setPincodesList(data);
+        const filtered = data.filter((d: any) => {
+          const dName = d.districtname || d.Districtname || d.district || d.divisionname || '';
+          return dName.toLowerCase() === districtName.toLowerCase();
+        });
+        filtered.sort((a, b) => (a.officename || '').localeCompare(b.officename || ''));
+        setPincodesList(filtered);
       }
     } catch (err: any) {
       console.error("Database Error:", err.message);
@@ -53,7 +57,6 @@ export default function DistrictPincodesPage() {
     setIsLoading(false);
   };
 
-  // Local filtering based on deep search query
   const filteredPincodes = pincodesList.filter(item => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
@@ -65,35 +68,29 @@ export default function DistrictPincodesPage() {
   const totalPages = Math.ceil(filteredPincodes.length / itemsPerPage);
   const currentResults = filteredPincodes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // Voice Search (Mic)
   const startListening = () => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
       
       recognition.continuous = false;
-      recognition.interimResults = false;
       recognition.lang = 'en-IN'; 
 
       recognition.onstart = () => setIsListening(true);
       recognition.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
         setSearchQuery(transcript.replace(/[^a-zA-Z0-9 ]/g, ""));
-        setCurrentPage(1); // Reset pagination on search
+        setCurrentPage(1);
         setIsListening(false);
       };
       recognition.onerror = () => setIsListening(false);
       recognition.onend = () => setIsListening(false);
-
       recognition.start();
-    } else {
-      alert("Voice search is not supported in this browser.");
     }
   };
 
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 min-h-screen space-y-10">
-      
       <div className="text-center mb-8">
         <h1 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">
           PIN Codes in {decodedDistrict.toUpperCase()}
@@ -101,7 +98,6 @@ export default function DistrictPincodesPage() {
         <p className="text-slate-400 text-lg">Browse all post offices in {decodedDistrict}, {decodedState}.</p>
       </div>
 
-      {/* Breadcrumbs & Search Bar */}
       <div className="flex flex-col lg:flex-row justify-between items-center gap-6 bg-[#0f172a] p-4 rounded-xl border border-slate-800">
         <div className="flex items-center gap-3 flex-wrap">
           <Link href="/pin-codes" className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg transition-colors text-sm">
@@ -131,10 +127,7 @@ export default function DistrictPincodesPage() {
             placeholder="Search within district..." 
             className="w-full bg-slate-900/80 text-white border border-slate-700 rounded-lg pl-10 pr-12 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder-slate-500 text-sm"
           />
-          <div 
-            onClick={startListening}
-            className={`absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-slate-500 hover:text-orange-400'}`}
-          >
+          <div onClick={startListening} className={`absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-slate-500 hover:text-orange-400'}`}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
           </div>
         </div>
@@ -176,7 +169,6 @@ export default function DistrictPincodesPage() {
                 ))}
               </div>
 
-              {/* Pagination */}
               {totalPages > 1 && (
                 <div className="flex justify-center items-center gap-4 pt-8 border-t border-slate-800/50">
                   <button 

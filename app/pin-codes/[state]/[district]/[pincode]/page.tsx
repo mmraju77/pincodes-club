@@ -12,13 +12,18 @@ export default async function PincodeDetailPage(props: any) {
   const districtName = resolvedParams?.district ? decodeURIComponent(resolvedParams.district).toUpperCase() : '';
   const currentPincode = resolvedParams?.pincode || '';
 
-  // Updated to use 'officename' and 'districtname' matching your Supabase columns
-  const { data: nearbyAreas } = await supabase
+  // Bulletproof: Fetch by state and filter by javascript
+  const { data: rawNearbyAreas } = await supabase
     .from('pincodes') 
-    .select('officename, pincode')
-    .eq('districtname', districtName)
+    .select('*')
+    .ilike('circlename', `%${stateName}%`)
     .neq('pincode', currentPincode)
-    .limit(8);
+    .limit(100);
+
+  const nearbyAreas = rawNearbyAreas?.filter((d: any) => {
+    const dName = d.districtname || d.Districtname || d.district || d.divisionname || '';
+    return dName.toUpperCase() === districtName;
+  }).slice(0, 8);
 
   const { data: nearbyBanks } = await supabase
     .from('ifsc_codes')
@@ -28,7 +33,6 @@ export default async function PincodeDetailPage(props: any) {
 
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 min-h-screen space-y-10">
-      
       <nav className="flex text-sm text-slate-400 items-center gap-2 flex-wrap">
         <Link href="/" className="hover:text-orange-400 transition-colors">HOME</Link>
         <span className="text-slate-600">/</span>
@@ -58,7 +62,6 @@ export default async function PincodeDetailPage(props: any) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-12">
-        
         <div className="bg-slate-900/40 p-6 rounded-2xl border border-slate-800 hover:border-slate-600 transition-all flex flex-col">
           <div className="flex items-center gap-3 mb-6 border-b border-slate-800 pb-4">
             <div className="bg-blue-500/10 p-2 rounded-lg text-blue-400">
@@ -131,7 +134,6 @@ export default async function PincodeDetailPage(props: any) {
             Explore Knowledge Hub &rarr;
           </Link>
         </div>
-
       </div>
     </div>
   );

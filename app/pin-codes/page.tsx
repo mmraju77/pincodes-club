@@ -40,13 +40,13 @@ export default function PincodesHubPage() {
   const performSearch = async (query: string) => {
     setIsSearching(true);
     try {
-      let q = supabase.from('pincodes').select('*').limit(20);
+      let q = supabase.from('pincodes').select('*').limit(30);
 
-      // Updated to match your exact database columns: 'officename', 'districtname'
       if (/^\d+$/.test(query)) {
         q = q.eq('pincode', Number(query));
       } else {
-        q = q.or(`officename.ilike.%${query}%,districtname.ilike.%${query}%`);
+        // Bulletproof: Searching only in known columns to prevent crashes
+        q = q.or(`officename.ilike.%${query}%,divisionname.ilike.%${query}%`);
       }
 
       const { data, error } = await q;
@@ -55,7 +55,7 @@ export default function PincodesHubPage() {
         setSearchResults(data);
       }
     } catch (err) {
-      console.error("Unexpected error:", err);
+      console.error("Search error:", err);
     }
     setIsSearching(false);
   };
@@ -66,29 +66,25 @@ export default function PincodesHubPage() {
       const recognition = new SpeechRecognition();
       
       recognition.continuous = false;
-      recognition.interimResults = false;
       recognition.lang = 'en-IN'; 
 
       recognition.onstart = () => setIsListening(true);
-
       recognition.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
         setSearchQuery(transcript.replace(/[^a-zA-Z0-9 ]/g, ""));
         setIsListening(false);
       };
-
       recognition.onerror = () => setIsListening(false);
       recognition.onend = () => setIsListening(false);
 
       recognition.start();
     } else {
-      alert("Voice search is not supported in this browser. Try Chrome or Edge.");
+      alert("Voice search is not supported in this browser.");
     }
   };
 
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 min-h-screen space-y-12">
-      
       <div className="bg-[#0f172a] p-8 md:p-12 rounded-3xl border border-slate-800 shadow-xl flex flex-col lg:flex-row justify-between items-center gap-8">
         <div className="flex-1 text-center lg:text-left">
           <span className="bg-orange-500/10 text-orange-400 text-xs font-bold px-4 py-1.5 rounded-full mb-4 inline-block border border-orange-500/20 uppercase tracking-wider">
@@ -105,9 +101,7 @@ export default function PincodesHubPage() {
         <div className="w-full lg:w-[450px]">
           <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <svg className="w-5 h-5 text-slate-500 group-focus-within:text-orange-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+              <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             </div>
             <input 
               type="text" 
@@ -119,11 +113,8 @@ export default function PincodesHubPage() {
             <div 
               onClick={startListening}
               className={`absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-slate-500 hover:text-orange-400'}`}
-              title="Click to use voice search"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
             </div>
           </div>
         </div>
@@ -141,31 +132,35 @@ export default function PincodesHubPage() {
              </div>
           ) : searchResults.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {searchResults.map((item, index) => (
-                 <Link 
-                  key={index}
-                  href={`/pin-codes/${encodeURIComponent(item.statename)}/${encodeURIComponent(item.districtname)}/${item.pincode}`}
-                  className="group block h-full"
-                >
-                  <div className="bg-[#0f172a] p-6 rounded-2xl border border-slate-800 hover:border-orange-500/50 transition-all cursor-pointer h-full shadow-lg flex flex-col">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="text-xl font-bold text-white group-hover:text-orange-400 transition-colors">
-                          {item.officename}
-                        </h3>
-                        <span className="text-xs text-slate-400">{item.officetype || 'POST OFFICE'}</span>
+              {searchResults.map((item, index) => {
+                const sName = item.statename || item.circlename || 'India';
+                const dName = item.districtname || item.Districtname || item.district || item.divisionname || 'Unknown';
+                return (
+                  <Link 
+                    key={index}
+                    href={`/pin-codes/${encodeURIComponent(sName)}/${encodeURIComponent(dName)}/${item.pincode}`}
+                    className="group block h-full"
+                  >
+                    <div className="bg-[#0f172a] p-6 rounded-2xl border border-slate-800 hover:border-orange-500/50 transition-all cursor-pointer h-full shadow-lg flex flex-col">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h3 className="text-xl font-bold text-white group-hover:text-orange-400 transition-colors">
+                            {item.officename}
+                          </h3>
+                          <span className="text-xs text-slate-400">{item.officetype || 'POST OFFICE'}</span>
+                        </div>
+                        <span className="bg-orange-500 text-white font-black px-3 py-1 rounded-lg">
+                          {item.pincode}
+                        </span>
                       </div>
-                      <span className="bg-orange-500 text-white font-black px-3 py-1 rounded-lg">
-                        {item.pincode}
-                      </span>
+                      <div className="mt-auto text-sm text-slate-400">
+                        <p>District: <span className="text-slate-200">{dName}</span></p>
+                        <p>State: <span className="text-slate-200">{sName}</span></p>
+                      </div>
                     </div>
-                    <div className="mt-auto text-sm text-slate-400">
-                      <p>District: <span className="text-slate-200">{item.districtname}</span></p>
-                      <p>State: <span className="text-slate-200">{item.statename}</span></p>
-                    </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-12 bg-[#0f172a] rounded-2xl border border-slate-800">
@@ -176,25 +171,16 @@ export default function PincodesHubPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {INDIAN_STATES.map((stateName, index) => (
-            <Link 
-              key={index}
-              href={`/pin-codes/${encodeURIComponent(stateName)}`}
-              className="group block"
-            >
+            <Link key={index} href={`/pin-codes/${encodeURIComponent(stateName)}`} className="group block">
               <div className="bg-[#0f172a] border border-slate-800 p-8 rounded-3xl flex flex-col items-center justify-center hover:bg-slate-800/80 hover:border-orange-500/30 cursor-pointer transition-all shadow-lg h-full">
                 <div className="mb-5 text-slate-500 group-hover:text-orange-400 transition-colors">
-                  <svg className="w-14 h-14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m3-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                  </svg>
+                  <svg className="w-14 h-14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m3-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                 </div>
                 <h3 className="text-white font-bold text-xl mb-6 text-center group-hover:text-orange-50 transition-colors">
                   {stateName}
                 </h3>
                 <span className="bg-orange-500/10 border border-orange-500/20 text-orange-400 text-sm font-bold px-5 py-2 rounded-full flex items-center gap-2 group-hover:bg-orange-500 group-hover:text-white transition-all">
                   Select State 
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                  </svg>
                 </span>
               </div>
             </Link>
