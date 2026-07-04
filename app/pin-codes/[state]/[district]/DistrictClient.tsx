@@ -5,37 +5,31 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { supabase } from '../../../../lib/supabase';
 
-// Phase 12: SEO Automation - Dynamic District Descriptions for AdSense Approval
-const getDistrictDescription = (districtName: string) => {
+// Phase 12.1: Programmatic SEO - Auto-Generating Content for ALL Districts in India
+const getDistrictDescription = (districtName: string, stateName: string) => {
   const name = districtName.toLowerCase();
   
-  if (name.includes('alluri sitharama raju')) {
-    return (
-      <p>The <strong>Alluri Sitharama Raju</strong> district, a breathtaking expanse of lush green hills and vibrant tribal culture in Andhra Pradesh, is named after the legendary Indian freedom fighter. Known for picturesque locations like Araku Valley and Paderu, this region is a blend of rich heritage and natural beauty. Navigating the postal network of this hilly terrain is now easier than ever with <strong>Pincode Club</strong>. Whether you are sending parcels to remote villages or verifying banking details, our directory provides the most accurate <strong>Alluri Sitharama Raju pin codes</strong> and IFSC information. We understand how crucial reliable <strong>postal services</strong> are for connecting these beautiful rural landscapes with the rest of the country. Explore our comprehensive database to instantly find the exact postal codes for any post office in this magnificent district.</p>
-    );
-  }
-  if (name.includes('visakhapatnam')) {
-    return (
-       <p>Visakhapatnam, affectionately known as the "City of Destiny," is a bustling coastal metropolis in Andhra Pradesh. Renowned for its pristine beaches, oldest shipyard, and thriving IT and industrial sectors, Vizag is a major economic hub. With rapid urban development, keeping track of the correct postal data is essential for businesses and residents alike. <strong>Pincode Club</strong> is your ultimate resource for finding precise <strong>Visakhapatnam pin codes</strong> effortlessly. From the busy commercial streets of Dwaraka Nagar to the serene neighborhoods of Bheemili, our platform ensures you have access to verified data for all your mailing and banking needs. Efficient <strong>postal services</strong> are the backbone of this growing smart city, and we are here to provide lightning-fast, reliable directory services for everyone in Visakhapatnam.</p>
-    );
-  }
-  if (name.includes('kakinada')) {
-    return (
-      <p>Kakinada, often celebrated as the "Fertilizer City" and a prominent port city of Andhra Pradesh, is famous for its rich Godavari culture, historical significance, and the mouth-watering Kakinada Kaja. As a rapidly developing smart city and a crucial hub for trade and education, accurate communication networks are vital. Through <strong>Pincode Club</strong>, finding exact <strong>Kakinada pin codes</strong> is a seamless experience. Whether you are managing logistics for local businesses or simply sending a gift to a loved one, our platform guarantees 100% accurate postal and banking information. The efficiency of local <strong>postal services</strong> relies on correct pin codes, and our comprehensive directory makes it incredibly easy to search and verify post offices across the entire Kakinada district.</p>
-    );
-  }
-  if (name.includes('anakapalli')) {
-    return (
-      <p>Anakapalli is a significant agricultural and historical district in Andhra Pradesh, globally renowned for hosting one of the largest jaggery markets in India. Steeped in history with ancient Buddhist heritage sites like Bojjannakonda, the region perfectly balances tradition with modern agricultural commerce. For farmers, traders, and everyday residents, reliable communication is key. <strong>Pincode Club</strong> simplifies this by offering a lightning-fast search tool to find authentic <strong>Anakapalli pin codes</strong>. Ensuring your goods and documents reach the right destination is easy when you have access to accurate data. We support the smooth functioning of <strong>postal services</strong> by providing a trustworthy, free, and up-to-date directory for every village and town within the Anakapalli district.</p>
-    );
-  }
-  if (name.includes('vizianagaram')) {
-    return (
-      <p>Vizianagaram, meaning the "City of Victory," is the cultural capital of North Coastal Andhra Pradesh. Famous for its magnificent forts, historical educational institutions, and a deep-rooted legacy in classical music and arts, this district is a treasure trove of heritage. To support the connectivity of its diverse towns and historic villages, <strong>Pincode Club</strong> offers a dedicated, highly accurate database of <strong>Vizianagaram pin codes</strong>. Whether you are a student applying for exams or a business sending official documents, having the right postal code is crucial. Our directory enhances your experience with local <strong>postal services</strong> by providing instant, verified access to PIN and IFSC codes, ensuring your mail always reaches the right doorstep in Vizianagaram.</p>
-    );
-  }
+  // 1. Custom content for the top 5 specific districts
+  if (name.includes('alluri sitharama raju')) return <p>The <strong>Alluri Sitharama Raju</strong> district, a breathtaking expanse of lush green hills and vibrant tribal culture in Andhra Pradesh, is named after the legendary Indian freedom fighter. Known for picturesque locations like Araku Valley and Paderu, this region is a blend of rich heritage and natural beauty. Navigating the postal network of this hilly terrain is now easier than ever with <strong>Pincode Club</strong>. Whether you are sending parcels to remote villages or verifying banking details, our directory provides the most accurate <strong>Alluri Sitharama Raju pin codes</strong> and IFSC information. We understand how crucial reliable <strong>postal services</strong> are for connecting these beautiful rural landscapes with the rest of the country. Explore our comprehensive database to instantly find the exact postal codes for any post office in this magnificent district.</p>;
+  if (name.includes('visakhapatnam')) return <p>Visakhapatnam, affectionately known as the "City of Destiny," is a bustling coastal metropolis in Andhra Pradesh. Renowned for its pristine beaches, oldest shipyard, and thriving IT and industrial sectors, Vizag is a major economic hub. With rapid urban development, keeping track of the correct postal data is essential for businesses and residents alike. <strong>Pincode Club</strong> is your ultimate resource for finding precise <strong>Visakhapatnam pin codes</strong> effortlessly. From the busy commercial streets of Dwaraka Nagar to the serene neighborhoods of Bheemili, our platform ensures you have access to verified data for all your mailing and banking needs. Efficient <strong>postal services</strong> are the backbone of this growing smart city, and we are here to provide lightning-fast, reliable directory services for everyone in Visakhapatnam.</p>;
+  if (name.includes('kakinada')) return <p>Kakinada, often celebrated as the "Fertilizer City" and a prominent port city of Andhra Pradesh, is famous for its rich Godavari culture, historical significance, and the mouth-watering Kakinada Kaja. As a rapidly developing smart city and a crucial hub for trade and education, accurate communication networks are vital. Through <strong>Pincode Club</strong>, finding exact <strong>Kakinada pin codes</strong> is a seamless experience. Whether you are managing logistics for local businesses or simply sending a gift to a loved one, our platform guarantees 100% accurate postal and banking information. The efficiency of local <strong>postal services</strong> relies on correct pin codes, and our comprehensive directory makes it incredibly easy to search and verify post offices across the entire Kakinada district.</p>;
+  if (name.includes('anakapalli')) return <p>Anakapalli is a significant agricultural and historical district in Andhra Pradesh, globally renowned for hosting one of the largest jaggery markets in India. Steeped in history with ancient Buddhist heritage sites like Bojjannakonda, the region perfectly balances tradition with modern agricultural commerce. For farmers, traders, and everyday residents, reliable communication is key. <strong>Pincode Club</strong> simplifies this by offering a lightning-fast search tool to find authentic <strong>Anakapalli pin codes</strong>. Ensuring your goods and documents reach the right destination is easy when you have access to accurate data. We support the smooth functioning of <strong>postal services</strong> by providing a trustworthy, free, and up-to-date directory for every village and town within the Anakapalli district.</p>;
+  if (name.includes('vizianagaram')) return <p>Vizianagaram, meaning the "City of Victory," is the cultural capital of North Coastal Andhra Pradesh. Famous for its magnificent forts, historical educational institutions, and a deep-rooted legacy in classical music and arts, this district is a treasure trove of heritage. To support the connectivity of its diverse towns and historic villages, <strong>Pincode Club</strong> offers a dedicated, highly accurate database of <strong>Vizianagaram pin codes</strong>. Whether you are a student applying for exams or a business sending official documents, having the right postal code is crucial. Our directory enhances your experience with local <strong>postal services</strong> by providing instant, verified access to PIN and IFSC codes, ensuring your mail always reaches the right doorstep in Vizianagaram.</p>;
   
-  return null;
+  // 2. Automatic templates for the remaining 700+ districts (Rotation Logic)
+  // Automatically select one of the 3 templates based on the first letter of the district name.
+  const templateIndex = name.charCodeAt(0) % 3;
+
+  const dName = districtName.toUpperCase();
+  const sName = stateName.toUpperCase();
+
+  if (templateIndex === 0) {
+    return <p>Welcome to the official postal directory for <strong>{dName}</strong> district in the state of <strong>{sName}</strong>. As a vital region with a growing local economy and rich community life, accurate communication and logistics are essential for everyday activities in {dName}. <strong>Pincode Club</strong> provides the most reliable and lightning-fast search platform to find exact <strong>{dName} PIN codes</strong>, post office locations, and banking IFSC details. Whether you are a local resident, a business owner, or someone sending a parcel to {dName}, our 100% free and updated database ensures your mail reaches the right destination without any delay. Browse the complete list of post offices below.</p>;
+  } else if (templateIndex === 1) {
+    return <p>Finding reliable postal information for <strong>{dName}</strong> in <strong>{sName}</strong> is now simpler than ever. The <strong>{dName}</strong> district relies heavily on an efficient postal and banking network to connect its diverse towns and beautiful villages. At <strong>Pincode Club</strong>, our mission is to offer you a seamless experience when searching for <strong>{dName} pin codes</strong>. From handling daily logistics for small businesses to helping residents verify post office branches, our verified directory is built to save you time. Explore the comprehensive data below to quickly locate the exact PIN or IFSC code you need anywhere within the {dName} region.</p>;
+  } else {
+    return <p>Are you looking for accurate postal data in <strong>{dName}</strong>, <strong>{sName}</strong>? You have come to the right place! <strong>Pincode Club</strong> is India's ultimate directory hub, meticulously organizing every single post office within the <strong>{dName}</strong> district. A robust postal system is the backbone of connectivity for the people of {dName}. That is why we ensure that every <strong>{dName} pin code</strong> and banking detail on our platform is 100% accurate and easy to find. Scroll down to seamlessly navigate through all the postal divisions and discover the exact location information you are searching for.</p>;
+  }
 };
 
 export default function DistrictClient() {
@@ -59,7 +53,7 @@ export default function DistrictClient() {
     if (decodedDistrict) {
       fetchPincodes(decodedDistrict);
     }
-  }, [decodedDistrict]);
+  }, [decodedDistrict, decodedState]);
 
   const fetchPincodes = async (districtName: string) => {
     setIsLoading(true);
@@ -117,7 +111,8 @@ export default function DistrictClient() {
     }
   };
 
-  const seoContent = getDistrictDescription(decodedDistrict);
+  // Passing both district and state names for SEO content generation
+  const seoContent = getDistrictDescription(decodedDistrict, decodedState);
 
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 min-h-screen space-y-10">
@@ -158,7 +153,7 @@ export default function DistrictClient() {
             className="w-full bg-slate-900/80 text-white border border-slate-700 rounded-lg pl-10 pr-12 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder-slate-500 text-sm"
           />
           <div onClick={startListening} className={`absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-slate-500 hover:text-orange-400'}`}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7-7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
           </div>
         </div>
       </div>
