@@ -3,9 +3,23 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-
-// Changed path to fix VS Code import error
 import { supabase } from '../../../lib/supabase';
+
+// Phase 12.4: Advanced India Post Circle Mapping logic
+const getCircleMapping = (stateName: string) => {
+  if (!stateName) return '';
+  const s = stateName.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '');
+  if (s.includes('andaman') || s.includes('sikkim')) return 'West Bengal';
+  if (s.includes('arunachal') || s.includes('manipur') || s.includes('meghalaya') || s.includes('mizoram') || s.includes('nagaland') || s.includes('tripura')) return 'North Eastern';
+  if (s.includes('chandigarh')) return 'Punjab';
+  if (s.includes('dadra') || s.includes('daman') || s.includes('diu')) return 'Gujarat';
+  if (s.includes('goa')) return 'Maharashtra';
+  if (s.includes('lakshadweep')) return 'Kerala';
+  if (s.includes('puducherry') || s.includes('pondicherry')) return 'Tamil Nadu';
+  if (s.includes('jammu') || s.includes('kashmir')) return 'Jammu';
+  if (s.includes('tamilnadu')) return 'Tamil Nadu';
+  return stateName;
+};
 
 export default function StateClient() {
   const [districtsList, setDistrictsList] = useState<string[]>([]);
@@ -32,29 +46,17 @@ export default function StateClient() {
     setErrorMessage('');
     
     try {
+      const mappedCircle = getCircleMapping(stateName);
       let allData: any[] = [];
       let keepFetching = true;
       let offset = 0;
       const pageSize = 1000;
       
-      // Smart Fallback Logic for states like Manipur, Goa, Lakshadweep
-      let searchColumn = 'statename'; 
-      const { data: testData, error: testError } = await supabase
-        .from('pincodes')
-        .select('*')
-        .ilike('statename', `%${stateName}%`)
-        .limit(1);
-
-      if (testError || !testData || testData.length === 0) {
-        searchColumn = 'circlename';
-      }
-
-      // Safe pagination loop to bypass database limits
       while (keepFetching) {
         const { data, error } = await supabase
           .from('pincodes')
           .select('*')
-          .ilike(searchColumn, `%${stateName}%`)
+          .ilike('circlename', `%${mappedCircle}%`)
           .range(offset, offset + pageSize - 1);
 
         if (error) throw error;
@@ -69,8 +71,25 @@ export default function StateClient() {
       }
       
       if (allData.length > 0) {
+        let stateFilteredData = allData;
+        const normalizedState = stateName.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '');
+        
+        // Exact state filtering for shared circles
+        if (mappedCircle.toLowerCase() !== stateName.toLowerCase()) {
+          const stateKey = Object.keys(allData[0] || {}).find(k => k.toLowerCase().includes('state'));
+          if (stateKey) {
+            stateFilteredData = allData.filter((row: any) => 
+              (row[stateKey] || '').toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '').includes(normalizedState)
+            );
+          } else {
+            stateFilteredData = allData.filter((row: any) => 
+              Object.values(row).some(val => typeof val === 'string' && val.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '').includes(normalizedState))
+            );
+          }
+        }
+
         const uniqueDistricts = Array.from(
-          new Set(allData.map((d: any) => d.districtname || d.Districtname || d.district || d.divisionname).filter(Boolean))
+          new Set(stateFilteredData.map((d: any) => d.districtname || d.Districtname || d.district || d.divisionname).filter(Boolean))
         );
         uniqueDistricts.sort();
         setDistrictsList(uniqueDistricts as string[]);
@@ -98,19 +117,8 @@ export default function StateClient() {
   const performDeepSearch = async (query: string) => {
     setIsSearching(true);
     try {
-      // Apply same Smart Fallback for deep searching
-      let searchColumn = 'statename'; 
-      const { data: testData } = await supabase
-        .from('pincodes')
-        .select('*')
-        .ilike('statename', `%${decodedState}%`)
-        .limit(1);
-
-      if (!testData || testData.length === 0) {
-        searchColumn = 'circlename';
-      }
-
-      let q = supabase.from('pincodes').select('*').ilike(searchColumn, `%${decodedState}%`).limit(30);
+      const mappedCircle = getCircleMapping(decodedState);
+      let q = supabase.from('pincodes').select('*').ilike('circlename', `%${mappedCircle}%`).limit(300);
 
       if (/^\d+$/.test(query)) {
         q = q.eq('pincode', Number(query));
@@ -120,7 +128,19 @@ export default function StateClient() {
 
       const { data, error } = await q;
       if (error) throw error;
-      if (data) setSearchResults(data);
+      
+      if (data) {
+        let filteredSearch = data;
+        const normalizedState = decodedState.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '');
+        const stateKey = Object.keys(data[0] || {}).find(k => k.toLowerCase().includes('state'));
+        
+        if (mappedCircle.toLowerCase() !== decodedState.toLowerCase() && stateKey) {
+            filteredSearch = data.filter((row: any) => 
+                (row[stateKey] || '').toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '').includes(normalizedState)
+            );
+        }
+        setSearchResults(filteredSearch.slice(0, 30));
+      }
     } catch (err: any) {
       console.error("Search error:", err);
     }
@@ -188,7 +208,7 @@ export default function StateClient() {
             className="w-full bg-slate-900/80 text-white border border-slate-700 rounded-lg pl-10 pr-12 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder-slate-500 text-sm"
           />
           <div onClick={startListening} className={`absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-slate-500 hover:text-orange-400'}`}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7-7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
           </div>
         </div>
       </div>
