@@ -5,20 +5,19 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { supabase } from '../../../../lib/supabase';
 
-// Phase 12.4: India Post Circle Mapping Logic
-const getCircleMapping = (stateName: string) => {
+const getSafeKeyword = (stateName: string) => {
   if (!stateName) return '';
-  const s = stateName.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '');
-  if (s.includes('andaman') || s.includes('sikkim')) return 'West Bengal';
-  if (s.includes('arunachal') || s.includes('manipur') || s.includes('meghalaya') || s.includes('mizoram') || s.includes('nagaland') || s.includes('tripura')) return 'North Eastern';
-  if (s.includes('chandigarh')) return 'Punjab';
-  if (s.includes('dadra') || s.includes('daman') || s.includes('diu')) return 'Gujarat';
-  if (s.includes('goa')) return 'Maharashtra';
-  if (s.includes('lakshadweep')) return 'Kerala';
-  if (s.includes('puducherry') || s.includes('pondicherry')) return 'Tamil Nadu';
-  if (s.includes('jammu') || s.includes('kashmir')) return 'Jammu';
-  if (s.includes('tamilnadu')) return 'Tamil Nadu';
-  return stateName;
+  const s = stateName.toLowerCase().replace(/[^a-z]/g, '');
+  if (s.includes('tamil') || s.includes('pudu') || s.includes('pondi')) return 'tamil';
+  if (s.includes('chhattisgarh') || s.includes('chattisgarh')) return 'chattis';
+  if (s.includes('kerala') || s.includes('lakshadweep')) return 'kerala';
+  if (s.includes('maharashtra') || s.includes('goa')) return 'maharashtra';
+  if (s.includes('gujarat') || s.includes('daman') || s.includes('diu') || s.includes('dadra')) return 'gujarat';
+  if (s.includes('bengal') || s.includes('andaman') || s.includes('sikkim')) return 'bengal';
+  if (s.includes('punjab') || s.includes('chandigarh')) return 'punjab';
+  if (s.includes('jammu') || s.includes('kashmir')) return 'jammu';
+  if (s.includes('arunachal') || s.includes('manipur') || s.includes('meghalaya') || s.includes('mizoram') || s.includes('nagaland') || s.includes('tripura')) return 'north';
+  return stateName.split(' ')[0].trim();
 };
 
 const getDistrictDescription = (districtName: string, stateName: string) => {
@@ -73,7 +72,7 @@ export default function DistrictClient() {
   const fetchPincodes = async (districtName: string) => {
     setIsLoading(true);
     try {
-      const mappedCircle = getCircleMapping(decodedState);
+      const keyword = getSafeKeyword(decodedState);
       let allData: any[] = [];
       let keepFetching = true;
       let offset = 0;
@@ -83,7 +82,7 @@ export default function DistrictClient() {
         const { data, error } = await supabase
           .from('pincodes')
           .select('*')
-          .ilike('circlename', `%${mappedCircle}%`)
+          .or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`)
           .range(offset, offset + pageSize - 1);
         
         if (error) {
@@ -101,27 +100,45 @@ export default function DistrictClient() {
       }
 
       if (allData.length > 0) {
-        const normalizedState = decodedState.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '');
-        const stateKey = Object.keys(allData[0] || {}).find(k => k.toLowerCase().includes('state'));
+        const normalizedTargetState = decodedState.toLowerCase().replace(/[^a-z]/g, '');
+        const normalizedTargetDistrict = districtName.toLowerCase().replace(/[^a-z]/g, '');
         
-        const filtered = allData.filter((d: any) => {
-          const dName = d.districtname || d.Districtname || d.district || d.divisionname || '';
-          const isDistrictMatch = dName.toLowerCase() === districtName.toLowerCase();
+        // Advanced JSON filtering for robustness
+        const finalData = allData.filter((row: any) => {
+          const rStr = JSON.stringify(row).toLowerCase().replace(/[^a-z]/g, '');
+          const dName = (row.districtname || row.Districtname || row.district || row.divisionname || '').toLowerCase().replace(/[^a-z]/g, '');
           
-          let isStateMatch = true;
-          // Apply exact state filtering for shared circles
-          if (mappedCircle.toLowerCase() !== decodedState.toLowerCase()) {
-            if (stateKey) {
-              isStateMatch = (d[stateKey] || '').toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '').includes(normalizedState);
-            } else {
-              isStateMatch = Object.values(d).some(val => typeof val === 'string' && val.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '').includes(normalizedState));
-            }
-          }
-          return isDistrictMatch && isStateMatch;
+          const isDistrictMatch = dName === normalizedTargetDistrict || dName.includes(normalizedTargetDistrict) || normalizedTargetDistrict.includes(dName);
+          if (!isDistrictMatch) return false;
+
+          if (normalizedTargetState.includes('pudu') || normalizedTargetState.includes('pondi')) return rStr.includes('pudu') || rStr.includes('pondi');
+          if (normalizedTargetState.includes('andaman')) return rStr.includes('andaman');
+          if (normalizedTargetState.includes('sikkim')) return rStr.includes('sikkim');
+          if (normalizedTargetState.includes('arunachal')) return rStr.includes('arunachal');
+          if (normalizedTargetState.includes('manipur')) return rStr.includes('manipur');
+          if (normalizedTargetState.includes('meghalaya')) return rStr.includes('meghalaya');
+          if (normalizedTargetState.includes('mizoram')) return rStr.includes('mizoram');
+          if (normalizedTargetState.includes('nagaland')) return rStr.includes('nagaland');
+          if (normalizedTargetState.includes('tripura')) return rStr.includes('tripura');
+          if (normalizedTargetState.includes('chandigarh')) return rStr.includes('chandigarh');
+          if (normalizedTargetState.includes('dadra') || normalizedTargetState.includes('nagar')) return rStr.includes('dadra') || rStr.includes('nagar');
+          if (normalizedTargetState.includes('daman') || normalizedTargetState.includes('diu')) return rStr.includes('daman') || rStr.includes('diu');
+          if (normalizedTargetState.includes('goa')) return rStr.includes('goa');
+          if (normalizedTargetState.includes('lakshadweep')) return rStr.includes('lakshadweep');
+          
+          if (normalizedTargetState.includes('tamil')) return !(rStr.includes('pudu') || rStr.includes('pondi'));
+          if (normalizedTargetState.includes('bengal')) return !(rStr.includes('andaman') || rStr.includes('sikkim'));
+          if (normalizedTargetState.includes('punjab')) return !rStr.includes('chandigarh');
+          if (normalizedTargetState.includes('gujarat')) return !(rStr.includes('dadra') || rStr.includes('daman') || rStr.includes('diu') || rStr.includes('nagar'));
+          if (normalizedTargetState.includes('maharashtra')) return !rStr.includes('goa');
+          if (normalizedTargetState.includes('kerala')) return !rStr.includes('lakshadweep');
+          if (normalizedTargetState.includes('chhattisgarh') || normalizedTargetState.includes('chattisgarh')) return rStr.includes('chattis');
+          
+          return true;
         });
 
-        filtered.sort((a, b) => (a.officename || '').localeCompare(b.officename || ''));
-        setPincodesList(filtered);
+        finalData.sort((a, b) => (a.officename || '').localeCompare(b.officename || ''));
+        setPincodesList(finalData);
       }
     } catch (err: any) {
       console.error("Fetch Error:", err.message);

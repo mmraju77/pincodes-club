@@ -5,20 +5,20 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
 
-// Phase 12.4: Advanced India Post Circle Mapping logic
-const getCircleMapping = (stateName: string) => {
+// Phase 12.5: Bulletproof State Keyword Extractor (Ignores spaces and spelling errors)
+const getSafeKeyword = (stateName: string) => {
   if (!stateName) return '';
-  const s = stateName.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '');
-  if (s.includes('andaman') || s.includes('sikkim')) return 'West Bengal';
-  if (s.includes('arunachal') || s.includes('manipur') || s.includes('meghalaya') || s.includes('mizoram') || s.includes('nagaland') || s.includes('tripura')) return 'North Eastern';
-  if (s.includes('chandigarh')) return 'Punjab';
-  if (s.includes('dadra') || s.includes('daman') || s.includes('diu')) return 'Gujarat';
-  if (s.includes('goa')) return 'Maharashtra';
-  if (s.includes('lakshadweep')) return 'Kerala';
-  if (s.includes('puducherry') || s.includes('pondicherry')) return 'Tamil Nadu';
-  if (s.includes('jammu') || s.includes('kashmir')) return 'Jammu';
-  if (s.includes('tamilnadu')) return 'Tamil Nadu';
-  return stateName;
+  const s = stateName.toLowerCase().replace(/[^a-z]/g, '');
+  if (s.includes('tamil') || s.includes('pudu') || s.includes('pondi')) return 'tamil';
+  if (s.includes('chhattisgarh') || s.includes('chattisgarh')) return 'chattis';
+  if (s.includes('kerala') || s.includes('lakshadweep')) return 'kerala';
+  if (s.includes('maharashtra') || s.includes('goa')) return 'maharashtra';
+  if (s.includes('gujarat') || s.includes('daman') || s.includes('diu') || s.includes('dadra')) return 'gujarat';
+  if (s.includes('bengal') || s.includes('andaman') || s.includes('sikkim')) return 'bengal';
+  if (s.includes('punjab') || s.includes('chandigarh')) return 'punjab';
+  if (s.includes('jammu') || s.includes('kashmir')) return 'jammu';
+  if (s.includes('arunachal') || s.includes('manipur') || s.includes('meghalaya') || s.includes('mizoram') || s.includes('nagaland') || s.includes('tripura')) return 'north';
+  return stateName.split(' ')[0].trim();
 };
 
 export default function StateClient() {
@@ -46,17 +46,18 @@ export default function StateClient() {
     setErrorMessage('');
     
     try {
-      const mappedCircle = getCircleMapping(stateName);
+      const keyword = getSafeKeyword(stateName);
       let allData: any[] = [];
       let keepFetching = true;
       let offset = 0;
       const pageSize = 1000;
       
+      // Fetch data based on bulletproof keyword
       while (keepFetching) {
         const { data, error } = await supabase
           .from('pincodes')
           .select('*')
-          .ilike('circlename', `%${mappedCircle}%`)
+          .or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`)
           .range(offset, offset + pageSize - 1);
 
         if (error) throw error;
@@ -71,25 +72,40 @@ export default function StateClient() {
       }
       
       if (allData.length > 0) {
-        let stateFilteredData = allData;
-        const normalizedState = stateName.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '');
+        const normalizedTarget = stateName.toLowerCase().replace(/[^a-z]/g, '');
         
-        // Exact state filtering for shared circles
-        if (mappedCircle.toLowerCase() !== stateName.toLowerCase()) {
-          const stateKey = Object.keys(allData[0] || {}).find(k => k.toLowerCase().includes('state'));
-          if (stateKey) {
-            stateFilteredData = allData.filter((row: any) => 
-              (row[stateKey] || '').toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '').includes(normalizedState)
-            );
-          } else {
-            stateFilteredData = allData.filter((row: any) => 
-              Object.values(row).some(val => typeof val === 'string' && val.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '').includes(normalizedState))
-            );
-          }
-        }
+        // Advanced JSON string filtering to bypass column name mismatches
+        const finalData = allData.filter((row: any) => {
+          const rStr = JSON.stringify(row).toLowerCase().replace(/[^a-z]/g, '');
+          
+          if (normalizedTarget.includes('pudu') || normalizedTarget.includes('pondi')) return rStr.includes('pudu') || rStr.includes('pondi');
+          if (normalizedTarget.includes('andaman')) return rStr.includes('andaman');
+          if (normalizedTarget.includes('sikkim')) return rStr.includes('sikkim');
+          if (normalizedTarget.includes('arunachal')) return rStr.includes('arunachal');
+          if (normalizedTarget.includes('manipur')) return rStr.includes('manipur');
+          if (normalizedTarget.includes('meghalaya')) return rStr.includes('meghalaya');
+          if (normalizedTarget.includes('mizoram')) return rStr.includes('mizoram');
+          if (normalizedTarget.includes('nagaland')) return rStr.includes('nagaland');
+          if (normalizedTarget.includes('tripura')) return rStr.includes('tripura');
+          if (normalizedTarget.includes('chandigarh')) return rStr.includes('chandigarh');
+          if (normalizedTarget.includes('dadra') || normalizedTarget.includes('nagar')) return rStr.includes('dadra') || rStr.includes('nagar');
+          if (normalizedTarget.includes('daman') || normalizedTarget.includes('diu')) return rStr.includes('daman') || rStr.includes('diu');
+          if (normalizedTarget.includes('goa')) return rStr.includes('goa');
+          if (normalizedTarget.includes('lakshadweep')) return rStr.includes('lakshadweep');
+          
+          if (normalizedTarget.includes('tamil')) return !(rStr.includes('pudu') || rStr.includes('pondi'));
+          if (normalizedTarget.includes('bengal')) return !(rStr.includes('andaman') || rStr.includes('sikkim'));
+          if (normalizedTarget.includes('punjab')) return !rStr.includes('chandigarh');
+          if (normalizedTarget.includes('gujarat')) return !(rStr.includes('dadra') || rStr.includes('daman') || rStr.includes('diu') || rStr.includes('nagar'));
+          if (normalizedTarget.includes('maharashtra')) return !rStr.includes('goa');
+          if (normalizedTarget.includes('kerala')) return !rStr.includes('lakshadweep');
+          if (normalizedTarget.includes('chhattisgarh') || normalizedTarget.includes('chattisgarh')) return rStr.includes('chattis');
+          
+          return true;
+        });
 
         const uniqueDistricts = Array.from(
-          new Set(stateFilteredData.map((d: any) => d.districtname || d.Districtname || d.district || d.divisionname).filter(Boolean))
+          new Set(finalData.map((d: any) => d.districtname || d.Districtname || d.district || d.divisionname).filter(Boolean))
         );
         uniqueDistricts.sort();
         setDistrictsList(uniqueDistricts as string[]);
@@ -117,8 +133,8 @@ export default function StateClient() {
   const performDeepSearch = async (query: string) => {
     setIsSearching(true);
     try {
-      const mappedCircle = getCircleMapping(decodedState);
-      let q = supabase.from('pincodes').select('*').ilike('circlename', `%${mappedCircle}%`).limit(300);
+      const keyword = getSafeKeyword(decodedState);
+      let q = supabase.from('pincodes').select('*').or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`).limit(300);
 
       if (/^\d+$/.test(query)) {
         q = q.eq('pincode', Number(query));
@@ -128,19 +144,7 @@ export default function StateClient() {
 
       const { data, error } = await q;
       if (error) throw error;
-      
-      if (data) {
-        let filteredSearch = data;
-        const normalizedState = decodedState.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '');
-        const stateKey = Object.keys(data[0] || {}).find(k => k.toLowerCase().includes('state'));
-        
-        if (mappedCircle.toLowerCase() !== decodedState.toLowerCase() && stateKey) {
-            filteredSearch = data.filter((row: any) => 
-                (row[stateKey] || '').toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '').includes(normalizedState)
-            );
-        }
-        setSearchResults(filteredSearch.slice(0, 30));
-      }
+      if (data) setSearchResults(data.slice(0, 30));
     } catch (err: any) {
       console.error("Search error:", err);
     }
