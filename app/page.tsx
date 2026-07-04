@@ -11,7 +11,6 @@ export default function HomePage() {
     { title: 'GST State Codes List', desc: 'Find official structural GST state prefixes', link: '/gst-codes', icon: '📊' }
   ];
 
-  // Dynamic SEO Search Links Configuration
   const trendingPINs = [
     { label: '531031 (Anakapalle)', query: '531031' },
     { label: '500032 (Gachibowli)', query: '500032' },
@@ -50,30 +49,29 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* Main Core Directories */}
-      <div className="grid md:grid-cols-2 gap-6">
-        <Link href="/pin-codes" className="group bg-slate-900 border border-slate-700 p-8 rounded-3xl hover:border-orange-500/50 transition-colors shadow-lg">
-          <div className="text-4xl mb-4">📍</div>
-          <h2 className="text-2xl font-bold text-white mb-2 group-hover:text-orange-400 transition-colors">PIN Codes Directory</h2>
-          <p className="text-slate-400 mb-6 text-sm md:text-base">Search through 1.5 Lakh+ Indian Post Office PIN codes by state, district, or village.</p>
-          <div className="inline-flex items-center gap-2 text-white font-bold bg-orange-600 px-5 py-2.5 rounded-xl shadow-md group-hover:bg-orange-500 transition-colors text-sm">
+      {/* Main Core Directories (Compact Design for Future Ads Space) */}
+      <div className="grid md:grid-cols-2 gap-4 lg:px-12">
+        <Link href="/pin-codes" className="group bg-slate-900 border border-slate-700 p-6 rounded-2xl hover:border-orange-500/50 transition-colors shadow-lg flex flex-col justify-between h-full">
+          <div>
+            <div className="text-3xl mb-3">📍</div>
+            <h2 className="text-xl font-bold text-white mb-2 group-hover:text-orange-400 transition-colors">PIN Codes Directory</h2>
+            <p className="text-slate-400 mb-6 text-sm">Search through 1.5 Lakh+ Indian Post Office PIN codes by state, district, or village.</p>
+          </div>
+          <div className="inline-flex items-center justify-center gap-2 text-white font-bold bg-orange-600 px-4 py-2 rounded-lg shadow-md group-hover:bg-orange-500 transition-colors text-sm w-max">
             Search PIN Codes <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
           </div>
         </Link>
 
-        <Link href="/ifsc-directory" className="group bg-slate-900 border border-slate-700 p-8 rounded-3xl hover:border-blue-500/50 transition-colors shadow-lg">
-          <div className="text-4xl mb-4">🏦</div>
-          <h2 className="text-2xl font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">IFSC & Bank Directory</h2>
-          <p className="text-slate-400 mb-6 text-sm md:text-base">Find exact IFSC, MICR, and branch addresses for 1.8 Lakh+ banks across India.</p>
-          <div className="inline-flex items-center gap-2 text-white font-bold bg-blue-600 px-5 py-2.5 rounded-xl shadow-md group-hover:bg-blue-500 transition-colors text-sm">
+        <Link href="/ifsc-directory" className="group bg-slate-900 border border-slate-700 p-6 rounded-2xl hover:border-blue-500/50 transition-colors shadow-lg flex flex-col justify-between h-full">
+          <div>
+            <div className="text-3xl mb-3">🏦</div>
+            <h2 className="text-xl font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">IFSC & Bank Directory</h2>
+            <p className="text-slate-400 mb-6 text-sm">Find exact IFSC, MICR, and branch addresses for 1.8 Lakh+ banks across India.</p>
+          </div>
+          <div className="inline-flex items-center justify-center gap-2 text-white font-bold bg-blue-600 px-4 py-2 rounded-lg shadow-md group-hover:bg-blue-500 transition-colors text-sm w-max">
             Search Bank Codes <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
           </div>
         </Link>
-      </div>
-
-      {/* AdSense Placeholder 1 */}
-      <div className="w-full h-24 bg-slate-800/30 border border-slate-700/50 rounded-xl flex items-center justify-center text-slate-500 text-sm border-dashed">
-        Advertisement Area
       </div>
 
       {/* Quick Navigation Cards */}
@@ -102,9 +100,9 @@ export default function HomePage() {
       </div>
 
       {/* SEO Sections */}
-      <div className="grid md:grid-cols-2 gap-8 pt-4">
-        {/* Trending PINs with Search Parameters */}
-        <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
+      <div className="grid md:grid-cols-2 gap-6 pt-4">
+        {/* Trending PINs */}
+        <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800">
           <h3 className="text-lg font-bold text-white mb-4 border-b border-slate-700 pb-2">🔥 Trending PIN Codes</h3>
           <div className="flex flex-wrap gap-2">
             {trendingPINs.map((item, i) => (
@@ -116,8 +114,8 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Popular IFSCs with Search Parameters */}
-        <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
+        {/* Popular IFSCs */}
+        <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800">
           <h3 className="text-lg font-bold text-white mb-4 border-b border-slate-700 pb-2">💎 Popular IFSC Codes</h3>
           <div className="flex flex-wrap gap-2">
             {popularIFSCs.map((ifsc, i) => (
@@ -130,12 +128,12 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Popular City PIN Codes Grid with Automated Search Filter */}
+      {/* Popular City PIN Codes */}
       <div className="pt-6">
         <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
           <span className="text-orange-500">🏙️</span> Popular City PIN Codes
         </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {popularCityPINs.map((item, i) => (
             <Link key={i} href={`/pin-codes?search=${item.city}`} className="bg-slate-800/40 p-3 rounded-xl border border-slate-700/50 hover:border-orange-500/50 hover:bg-slate-800 transition-all group flex justify-between items-center shadow-sm">
               <span className="text-sm font-semibold text-slate-300 group-hover:text-white transition-colors">{item.city}</span>
@@ -145,20 +143,15 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* AdSense Placeholder 2 */}
-      <div className="w-full h-24 bg-slate-800/30 border border-slate-700/50 rounded-xl flex items-center justify-center text-slate-500 text-sm border-dashed my-8">
-        Advertisement Area
-      </div>
-
       {/* Utility Directories */}
       <div className="pt-8 border-t border-slate-800">
-        <h2 className="text-2xl font-bold text-white mb-6">More Utility Directories</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <h2 className="text-xl font-bold text-white mb-6">More Utility Directories</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {utilityDirectories.map((dir, idx) => (
             <Link key={idx} href={dir.link} className="flex items-center gap-4 bg-slate-900 p-4 rounded-xl border border-slate-800 hover:border-slate-600 transition-colors group">
-              <div className="text-3xl bg-slate-800 w-12 h-12 flex items-center justify-center rounded-lg group-hover:scale-105 transition-transform">{dir.icon}</div>
+              <div className="text-2xl bg-slate-800 w-12 h-12 flex items-center justify-center rounded-lg group-hover:scale-105 transition-transform">{dir.icon}</div>
               <div>
-                <h3 className="text-base font-bold text-white group-hover:text-slate-300 transition-colors">{dir.title}</h3>
+                <h3 className="text-sm font-bold text-white group-hover:text-slate-300 transition-colors">{dir.title}</h3>
                 <p className="text-slate-500 text-xs mt-0.5 line-clamp-1">{dir.desc}</p>
               </div>
             </Link>
