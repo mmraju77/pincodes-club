@@ -32,17 +32,45 @@ export default function StateClient() {
     setErrorMessage('');
     
     try {
-      const { data, error } = await supabase
+      let allData: any[] = [];
+      let keepFetching = true;
+      let offset = 0;
+      const pageSize = 1000;
+      
+      // Smart Fallback Logic for states like Manipur, Goa, Lakshadweep
+      let searchColumn = 'statename'; 
+      const { data: testData, error: testError } = await supabase
         .from('pincodes')
-        .select('*') 
-        .ilike('circlename', `%${stateName}%`)
-        .limit(2000);
+        .select('*')
+        .ilike('statename', `%${stateName}%`)
+        .limit(1);
+
+      if (testError || !testData || testData.length === 0) {
+        searchColumn = 'circlename';
+      }
+
+      // Safe pagination loop to bypass database limits
+      while (keepFetching) {
+        const { data, error } = await supabase
+          .from('pincodes')
+          .select('*')
+          .ilike(searchColumn, `%${stateName}%`)
+          .range(offset, offset + pageSize - 1);
+
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          offset += pageSize;
+          if (data.length < pageSize) keepFetching = false;
+        } else {
+          keepFetching = false;
+        }
+      }
       
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
+      if (allData.length > 0) {
         const uniqueDistricts = Array.from(
-          new Set(data.map((d: any) => d.districtname || d.Districtname || d.district || d.divisionname).filter(Boolean))
+          new Set(allData.map((d: any) => d.districtname || d.Districtname || d.district || d.divisionname).filter(Boolean))
         );
         uniqueDistricts.sort();
         setDistrictsList(uniqueDistricts as string[]);
@@ -70,7 +98,19 @@ export default function StateClient() {
   const performDeepSearch = async (query: string) => {
     setIsSearching(true);
     try {
-      let q = supabase.from('pincodes').select('*').ilike('circlename', `%${decodedState}%`).limit(30);
+      // Apply same Smart Fallback for deep searching
+      let searchColumn = 'statename'; 
+      const { data: testData } = await supabase
+        .from('pincodes')
+        .select('*')
+        .ilike('statename', `%${decodedState}%`)
+        .limit(1);
+
+      if (!testData || testData.length === 0) {
+        searchColumn = 'circlename';
+      }
+
+      let q = supabase.from('pincodes').select('*').ilike(searchColumn, `%${decodedState}%`).limit(30);
 
       if (/^\d+$/.test(query)) {
         q = q.eq('pincode', Number(query));
@@ -148,7 +188,7 @@ export default function StateClient() {
             className="w-full bg-slate-900/80 text-white border border-slate-700 rounded-lg pl-10 pr-12 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder-slate-500 text-sm"
           />
           <div onClick={startListening} className={`absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-slate-500 hover:text-orange-400'}`}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7-7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
           </div>
         </div>
       </div>
