@@ -5,20 +5,20 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { supabase } from '../../../../lib/supabase';
 
-// Phase 12.1: Programmatic SEO - Auto-Generating Content for ALL Districts in India
+// Phase 12.2: Programmatic SEO with Safety Checks
 const getDistrictDescription = (districtName: string, stateName: string) => {
+  if (!districtName || !stateName) return null;
+  
   const name = districtName.toLowerCase();
   
-  // 1. Custom content for the top 5 specific districts
   if (name.includes('alluri sitharama raju')) return <p>The <strong>Alluri Sitharama Raju</strong> district, a breathtaking expanse of lush green hills and vibrant tribal culture in Andhra Pradesh, is named after the legendary Indian freedom fighter. Known for picturesque locations like Araku Valley and Paderu, this region is a blend of rich heritage and natural beauty. Navigating the postal network of this hilly terrain is now easier than ever with <strong>Pincode Club</strong>. Whether you are sending parcels to remote villages or verifying banking details, our directory provides the most accurate <strong>Alluri Sitharama Raju pin codes</strong> and IFSC information. We understand how crucial reliable <strong>postal services</strong> are for connecting these beautiful rural landscapes with the rest of the country. Explore our comprehensive database to instantly find the exact postal codes for any post office in this magnificent district.</p>;
   if (name.includes('visakhapatnam')) return <p>Visakhapatnam, affectionately known as the "City of Destiny," is a bustling coastal metropolis in Andhra Pradesh. Renowned for its pristine beaches, oldest shipyard, and thriving IT and industrial sectors, Vizag is a major economic hub. With rapid urban development, keeping track of the correct postal data is essential for businesses and residents alike. <strong>Pincode Club</strong> is your ultimate resource for finding precise <strong>Visakhapatnam pin codes</strong> effortlessly. From the busy commercial streets of Dwaraka Nagar to the serene neighborhoods of Bheemili, our platform ensures you have access to verified data for all your mailing and banking needs. Efficient <strong>postal services</strong> are the backbone of this growing smart city, and we are here to provide lightning-fast, reliable directory services for everyone in Visakhapatnam.</p>;
   if (name.includes('kakinada')) return <p>Kakinada, often celebrated as the "Fertilizer City" and a prominent port city of Andhra Pradesh, is famous for its rich Godavari culture, historical significance, and the mouth-watering Kakinada Kaja. As a rapidly developing smart city and a crucial hub for trade and education, accurate communication networks are vital. Through <strong>Pincode Club</strong>, finding exact <strong>Kakinada pin codes</strong> is a seamless experience. Whether you are managing logistics for local businesses or simply sending a gift to a loved one, our platform guarantees 100% accurate postal and banking information. The efficiency of local <strong>postal services</strong> relies on correct pin codes, and our comprehensive directory makes it incredibly easy to search and verify post offices across the entire Kakinada district.</p>;
   if (name.includes('anakapalli')) return <p>Anakapalli is a significant agricultural and historical district in Andhra Pradesh, globally renowned for hosting one of the largest jaggery markets in India. Steeped in history with ancient Buddhist heritage sites like Bojjannakonda, the region perfectly balances tradition with modern agricultural commerce. For farmers, traders, and everyday residents, reliable communication is key. <strong>Pincode Club</strong> simplifies this by offering a lightning-fast search tool to find authentic <strong>Anakapalli pin codes</strong>. Ensuring your goods and documents reach the right destination is easy when you have access to accurate data. We support the smooth functioning of <strong>postal services</strong> by providing a trustworthy, free, and up-to-date directory for every village and town within the Anakapalli district.</p>;
   if (name.includes('vizianagaram')) return <p>Vizianagaram, meaning the "City of Victory," is the cultural capital of North Coastal Andhra Pradesh. Famous for its magnificent forts, historical educational institutions, and a deep-rooted legacy in classical music and arts, this district is a treasure trove of heritage. To support the connectivity of its diverse towns and historic villages, <strong>Pincode Club</strong> offers a dedicated, highly accurate database of <strong>Vizianagaram pin codes</strong>. Whether you are a student applying for exams or a business sending official documents, having the right postal code is crucial. Our directory enhances your experience with local <strong>postal services</strong> by providing instant, verified access to PIN and IFSC codes, ensuring your mail always reaches the right doorstep in Vizianagaram.</p>;
   
-  // 2. Automatic templates for the remaining 700+ districts (Rotation Logic)
-  // Automatically select one of the 3 templates based on the first letter of the district name.
-  const templateIndex = name.charCodeAt(0) % 3;
+  const firstChar = name.charCodeAt(0);
+  const templateIndex = isNaN(firstChar) ? 0 : firstChar % 3;
 
   const dName = districtName.toUpperCase();
   const sName = stateName.toUpperCase();
@@ -58,15 +58,36 @@ export default function DistrictClient() {
   const fetchPincodes = async (districtName: string) => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('pincodes')
-        .select('*')
-        .ilike('circlename', `%${decodedState}%`)
-        .limit(3000);
-      
-      if (error) throw error;
-      if (data) {
-        const filtered = data.filter((d: any) => {
+      let allData: any[] = [];
+      let keepFetching = true;
+      let offset = 0;
+      const pageSize = 1000;
+
+      // Smart Pagination Loop to bypass database limits for massive states
+      while (keepFetching) {
+        const { data, error } = await supabase
+          .from('pincodes')
+          .select('*')
+          .ilike('circlename', `%${decodedState}%`)
+          .range(offset, offset + pageSize - 1);
+        
+        if (error) {
+          console.error("Database Error:", error.message);
+          break;
+        }
+        
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          offset += pageSize;
+          if (data.length < pageSize) keepFetching = false;
+        } else {
+          keepFetching = false;
+        }
+      }
+
+      // Filter perfectly after fetching 100% of the state's data
+      if (allData.length > 0) {
+        const filtered = allData.filter((d: any) => {
           const dName = d.districtname || d.Districtname || d.district || d.divisionname || '';
           return dName.toLowerCase() === districtName.toLowerCase();
         });
@@ -74,7 +95,7 @@ export default function DistrictClient() {
         setPincodesList(filtered);
       }
     } catch (err: any) {
-      console.error("Database Error:", err.message);
+      console.error("Fetch Error:", err.message);
     }
     setIsLoading(false);
   };
@@ -111,7 +132,6 @@ export default function DistrictClient() {
     }
   };
 
-  // Passing both district and state names for SEO content generation
   const seoContent = getDistrictDescription(decodedDistrict, decodedState);
 
   return (
@@ -153,7 +173,7 @@ export default function DistrictClient() {
             className="w-full bg-slate-900/80 text-white border border-slate-700 rounded-lg pl-10 pr-12 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder-slate-500 text-sm"
           />
           <div onClick={startListening} className={`absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-slate-500 hover:text-orange-400'}`}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7-7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
           </div>
         </div>
       </div>
