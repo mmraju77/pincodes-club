@@ -27,12 +27,13 @@ export default function RootLayout({
 
           <Navbar />
 
-          <main className="flex-grow w-full">
+          {/* ఇక్కడ pb-24 (Padding Bottom) యాడ్ చేశాను, దీనివల్ల కంటెంట్ కి ఫుట్టర్ కి మధ్య మంచి గ్యాప్ వస్తుంది */}
+          <main className="flex-grow w-full pb-24">
             {children}
           </main>
 
-          {/* PHASE 12: SEO Authority Links (About, Contact, Privacy, Disclaimer) */}
-          <div className="border-t border-slate-800/50 bg-[#0f172a]">
+          {/* ఇక్కడ mt-auto (Margin Top Auto) యాడ్ చేశాను, దీనివల్ల కంటెంట్ తక్కువ ఉన్నా ఫుట్టర్ కిందకే ఉంటుంది */}
+          <div className="mt-auto border-t border-slate-800/50 bg-[#0f172a]">
             <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 flex flex-wrap justify-center gap-6 text-sm text-slate-400 font-medium">
               <Link href="/about" className="hover:text-orange-400 transition-colors">About Us</Link>
               <Link href="/contact" className="hover:text-orange-400 transition-colors">Contact</Link>
