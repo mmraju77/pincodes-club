@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { supabase } from '../../../../lib/supabase';
 
-// Phase 12.7: Bulletproof State Extractor with Andaman Fix for District Client
 const getSafeKeyword = (stateName: string) => {
   if (!stateName) return '';
   const s = stateName.toLowerCase().replace(/[^a-z]/g, '');
@@ -23,7 +22,6 @@ const getSafeKeyword = (stateName: string) => {
 
 const getDistrictDescription = (districtName: string, stateName: string) => {
   if (!districtName || !stateName) return null;
-  
   const name = districtName.toLowerCase();
   
   if (name.includes('alluri sitharama raju')) return <p>The <strong>Alluri Sitharama Raju</strong> district, a breathtaking expanse of lush green hills and vibrant tribal culture in Andhra Pradesh, is named after the legendary Indian freedom fighter. Known for picturesque locations like Araku Valley and Paderu, this region is a blend of rich heritage and natural beauty. Navigating the postal network of this hilly terrain is now easier than ever with <strong>Pincode Club</strong>. Whether you are sending parcels to remote villages or verifying banking details, our directory provides the most accurate <strong>Alluri Sitharama Raju pin codes</strong> and IFSC information. We understand how crucial reliable <strong>postal services</strong> are for connecting these beautiful rural landscapes with the rest of the country. Explore our comprehensive database to instantly find the exact postal codes for any post office in this magnificent district.</p>;
@@ -34,7 +32,6 @@ const getDistrictDescription = (districtName: string, stateName: string) => {
   
   const firstChar = name.charCodeAt(0);
   const templateIndex = isNaN(firstChar) ? 0 : firstChar % 3;
-
   const dName = districtName.toUpperCase();
   const sName = stateName.toUpperCase();
 
@@ -112,7 +109,6 @@ export default function DistrictClient() {
           const isDistrictMatch = dName === normalizedTargetDistrict || dName.includes(normalizedTargetDistrict) || normalizedTargetDistrict.includes(dName);
           if (!isDistrictMatch) return false;
 
-          // Andaman & Nicobar strict fallback fix
           if (normalizedTargetState.includes('andaman') || normalizedTargetState.includes('nicobar')) {
             return rStr.includes('andaman') || rStr.includes('nicobar') || rStr.includes('a&n') || rStr.includes('aandn');
           }
@@ -153,12 +149,13 @@ export default function DistrictClient() {
 
   const filteredPincodes = pincodesList.filter(item => {
     if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase().trim();
-    // Ultimate local search logic
-    const isNameMatch = item.officename?.toLowerCase().includes(query);
-    const isPinMatch = item.pincode?.toString().includes(query);
-    const isDivMatch = item.divisionname?.toLowerCase().includes(query);
-    return isNameMatch || isPinMatch || isDivMatch;
+    const safeQuery = searchQuery.toLowerCase().replace(/\s+/g, '');
+    
+    const oName = (item.officename || '').toLowerCase().replace(/\s+/g, '');
+    const dName = (item.divisionname || '').toLowerCase().replace(/\s+/g, '');
+    const pin = (item.pincode || '').toString();
+
+    return oName.includes(safeQuery) || pin.includes(safeQuery) || dName.includes(safeQuery);
   });
 
   const totalPages = Math.ceil(filteredPincodes.length / itemsPerPage);
@@ -174,13 +171,10 @@ export default function DistrictClient() {
 
       recognition.onstart = () => setIsListening(true);
       recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        // Voice Search Fix
-        let cleaned = transcript.replace(/[^\w\s]/gi, '').trim();
+        let transcript = event.results[0][0].transcript;
+        let cleaned = transcript.replace(/[.,!?]/g, '').trim();
         if (/^[\d\s]+$/.test(cleaned)) {
             cleaned = cleaned.replace(/\s+/g, ''); 
-        } else {
-            cleaned = cleaned.replace(/\s+/g, ' '); 
         }
         setSearchQuery(cleaned);
         setCurrentPage(1);
@@ -197,7 +191,6 @@ export default function DistrictClient() {
   return (
     <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 min-h-screen space-y-8">
       
-      {/* Ultra Compact Header Navigation */}
       <div className="bg-[#0f172a] p-6 md:p-8 rounded-2xl border border-slate-800 shadow-xl flex flex-col lg:flex-row justify-between items-center gap-6">
         <div className="flex-1 text-center lg:text-left">
           <div className="flex items-center gap-2 flex-wrap justify-center lg:justify-start mb-3">
@@ -241,7 +234,6 @@ export default function DistrictClient() {
         </div>
       </div>
 
-      {/* SEO Optimized District Blog Content */}
       {seoContent && (
         <div className="bg-slate-900/50 p-5 md:p-6 rounded-2xl border border-slate-800 shadow-sm text-slate-300 leading-relaxed text-sm">
           {seoContent}
@@ -257,7 +249,6 @@ export default function DistrictClient() {
         <>
           {currentResults.length > 0 ? (
             <div className="space-y-8">
-              {/* Ultra Compact Post Office Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {currentResults.map((item, index) => (
                   <Link 
@@ -316,7 +307,7 @@ export default function DistrictClient() {
           ) : (
             <div className="text-center py-16 bg-[#0f172a] rounded-2xl border border-slate-800">
               <h3 className="text-lg font-bold text-white mb-2">No post offices found</h3>
-              <p className="text-slate-400 text-sm">Try adjusting your search query.</p>
+              <p className="text-slate-400 text-sm">Try typing just the first 4 letters of the name.</p>
             </div>
           )}
         </>

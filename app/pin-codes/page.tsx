@@ -37,20 +37,19 @@ export default function PincodesHubPage() {
     setIsSearching(true);
     try {
       const safeQuery = query.trim();
+      // Replace spaces with wildcard % for fuzzy searching
+      const dbQuery = safeQuery.replace(/\s+/g, '%'); 
+      
       let q = supabase.from('pincodes').select('*').limit(30);
 
-      // Ultimate Search Logic
       if (/^\d+$/.test(safeQuery)) {
         q = q.eq('pincode', Number(safeQuery));
       } else {
-        q = q.or(`officename.ilike.%${safeQuery}%,districtname.ilike.%${safeQuery}%,statename.ilike.%${safeQuery}%,divisionname.ilike.%${safeQuery}%`);
+        q = q.or(`officename.ilike.%${dbQuery}%,districtname.ilike.%${dbQuery}%,statename.ilike.%${dbQuery}%,divisionname.ilike.%${dbQuery}%`);
       }
 
       const { data, error } = await q;
-
-      if (data) {
-        setSearchResults(data);
-      }
+      if (data) setSearchResults(data);
     } catch (err) {
       console.error("Search error:", err);
     }
@@ -67,20 +66,17 @@ export default function PincodesHubPage() {
 
       recognition.onstart = () => setIsListening(true);
       recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        // Voice Search Fix
-        let cleaned = transcript.replace(/[^\w\s]/gi, '').trim();
+        let transcript = event.results[0][0].transcript;
+        // Voice Search Fix: Clean punctuations
+        let cleaned = transcript.replace(/[.,!?]/g, '').trim();
         if (/^[\d\s]+$/.test(cleaned)) {
             cleaned = cleaned.replace(/\s+/g, ''); 
-        } else {
-            cleaned = cleaned.replace(/\s+/g, ' '); 
         }
         setSearchQuery(cleaned);
         setIsListening(false);
       };
       recognition.onerror = () => setIsListening(false);
       recognition.onend = () => setIsListening(false);
-
       recognition.start();
     } else {
       alert("Voice search is not supported in this browser.");
@@ -90,7 +86,6 @@ export default function PincodesHubPage() {
   return (
     <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 min-h-screen space-y-10">
       
-      {/* Compact Search Header */}
       <div className="bg-[#0f172a] p-6 md:p-8 rounded-2xl border border-slate-800 shadow-xl flex flex-col lg:flex-row justify-between items-center gap-6">
         <div className="flex-1 text-center lg:text-left">
           <span className="bg-orange-500/10 text-orange-400 text-xs font-bold px-3 py-1 rounded-md mb-3 inline-block border border-orange-500/20 uppercase tracking-wider">
@@ -133,8 +128,9 @@ export default function PincodesHubPage() {
           </h2>
           
           {isSearching ? (
-             <div className="py-8 text-center">
-               <div className="w-6 h-6 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+             <div className="py-12 text-center">
+               <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+               <p className="text-slate-400 text-sm mt-4">Searching across India...</p>
              </div>
           ) : searchResults.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -169,13 +165,13 @@ export default function PincodesHubPage() {
               })}
             </div>
           ) : (
-            <div className="text-center py-8 bg-[#0f172a] rounded-xl border border-slate-800">
-              <p className="text-slate-400 text-sm">No results found for "{searchQuery}". Try a different location or PIN code.</p>
+            <div className="text-center py-12 bg-[#0f172a] rounded-xl border border-slate-800">
+              <h3 className="text-lg font-bold text-white mb-2">No results found</h3>
+              <p className="text-slate-400 text-sm">We couldn't find exact matches. Try typing just the first 4 letters (e.g. "viza").</p>
             </div>
           )}
         </div>
       ) : (
-        /* Ultra Compact State Cards */
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {INDIAN_STATES.map((stateName, index) => (
             <Link key={index} href={`/pin-codes/${encodeURIComponent(stateName)}`} className="group block">

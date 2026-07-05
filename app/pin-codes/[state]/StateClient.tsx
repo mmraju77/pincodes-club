@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
 
-// Phase 12.6: Bulletproof State Keyword Extractor + Andaman Fix
 const getSafeKeyword = (stateName: string) => {
   if (!stateName) return '';
   const s = stateName.toLowerCase().replace(/[^a-z]/g, '');
@@ -77,12 +76,9 @@ export default function StateClient() {
           const rStr = JSON.stringify(row).toLowerCase().replace(/[^a-z]/g, '');
           
           if (normalizedTarget.includes('pudu') || normalizedTarget.includes('pondi')) return rStr.includes('pudu') || rStr.includes('pondi');
-          
-          // Andaman & Nicobar strict fallback fix (Checks for "A & N" as well)
           if (normalizedTarget.includes('andaman') || normalizedTarget.includes('nicobar')) {
             return rStr.includes('andaman') || rStr.includes('nicobar') || rStr.includes('a&n') || rStr.includes('aandn');
           }
-          
           if (normalizedTarget.includes('sikkim')) return rStr.includes('sikkim');
           if (normalizedTarget.includes('arunachal')) return rStr.includes('arunachal');
           if (normalizedTarget.includes('manipur')) return rStr.includes('manipur');
@@ -138,13 +134,14 @@ export default function StateClient() {
     try {
       const keyword = getSafeKeyword(decodedState);
       const safeQuery = query.trim();
+      const dbQuery = safeQuery.replace(/\s+/g, '%');
+      
       let q = supabase.from('pincodes').select('*').or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`).limit(100);
 
-      // Ultimate Search Logic
       if (/^\d+$/.test(safeQuery)) {
         q = q.eq('pincode', Number(safeQuery));
       } else {
-        q = q.or(`officename.ilike.%${safeQuery}%,districtname.ilike.%${safeQuery}%,divisionname.ilike.%${safeQuery}%`);
+        q = q.or(`officename.ilike.%${dbQuery}%,districtname.ilike.%${dbQuery}%,divisionname.ilike.%${dbQuery}%`);
       }
 
       const { data, error } = await q;
@@ -166,13 +163,10 @@ export default function StateClient() {
 
       recognition.onstart = () => setIsListening(true);
       recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        // Voice Search Fix
-        let cleaned = transcript.replace(/[^\w\s]/gi, '').trim();
+        let transcript = event.results[0][0].transcript;
+        let cleaned = transcript.replace(/[.,!?]/g, '').trim();
         if (/^[\d\s]+$/.test(cleaned)) {
             cleaned = cleaned.replace(/\s+/g, ''); 
-        } else {
-            cleaned = cleaned.replace(/\s+/g, ' '); 
         }
         setSearchQuery(cleaned);
         setIsListening(false);
@@ -190,7 +184,6 @@ export default function StateClient() {
   return (
     <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 min-h-screen space-y-10">
       
-      {/* Compact Header Area */}
       <div className="bg-[#0f172a] p-6 md:p-8 rounded-2xl border border-slate-800 shadow-xl flex flex-col lg:flex-row justify-between items-center gap-6">
         <div className="flex-1 text-center lg:text-left">
           <div className="flex items-center gap-3 flex-wrap justify-center lg:justify-start mb-3">
@@ -232,17 +225,17 @@ export default function StateClient() {
         </div>
       </div>
 
-      {searchQuery.trim().length > 2 && searchResults.length > 0 ? (
+      {searchQuery.trim().length > 2 ? (
         <div className="space-y-6">
           <h2 className="text-xl font-bold text-white border-b border-slate-800 pb-3">
             Villages/Post Offices matching "{searchQuery}"
           </h2>
           {isSearching ? (
-             <div className="py-8 text-center">
-               <div className="w-6 h-6 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+             <div className="py-12 text-center">
+               <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+               <p className="text-slate-400 text-sm mt-4">Searching in {decodedState}...</p>
              </div>
-          ) : (
-            /* Ultra Compact Post Office Cards */
+          ) : searchResults.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {searchResults.map((item, index) => {
                 const dName = item.districtname || item.Districtname || item.district || item.divisionname || 'Unknown';
@@ -255,7 +248,7 @@ export default function StateClient() {
                     <div className="bg-[#0f172a] p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all cursor-pointer h-full shadow-md flex flex-col justify-between">
                       <div className="mb-3">
                         <div className="flex justify-between items-start gap-2 mb-2">
-                           <h3 className="text-base font-bold text-white group-hover:text-orange-400 transition-colors line-clamp-1">
+                           <h3 className="text-base font-bold text-white group-hover:text-orange-400 transition-colors line-clamp-1" title={item.officename}>
                              {item.officename}
                            </h3>
                            <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 font-bold px-2 py-0.5 rounded text-xs shrink-0">
@@ -272,6 +265,11 @@ export default function StateClient() {
                 );
               })}
             </div>
+          ) : (
+            <div className="text-center py-12 bg-[#0f172a] rounded-2xl border border-slate-800">
+              <h3 className="text-lg font-bold text-white mb-2">No post offices found</h3>
+              <p className="text-slate-400 text-sm">Try typing just the first 4 letters (e.g., "addu" or "viza").</p>
+            </div>
           )}
         </div>
       ) : (
@@ -282,7 +280,6 @@ export default function StateClient() {
               <p className="text-slate-400 font-medium text-sm">Fetching districts...</p>
             </div>
           ) : filteredDistricts.length > 0 ? (
-            /* Ultra Compact District Cards */
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {filteredDistricts.map((districtName, index) => (
                 <Link key={index} href={`/pin-codes/${encodeURIComponent(decodedState)}/${encodeURIComponent(districtName)}`} className="group block">
@@ -301,8 +298,8 @@ export default function StateClient() {
             </div>
           ) : (
             <div className="text-center py-16 bg-[#0f172a] rounded-2xl border border-slate-800">
-              <h3 className="text-lg font-bold text-white mb-2">No results found</h3>
-              <p className="text-slate-400 text-sm">We couldn't find any districts or villages matching your query.</p>
+              <h3 className="text-lg font-bold text-white mb-2">No districts found</h3>
+              <p className="text-slate-400 text-sm">We couldn't find any districts matching your query.</p>
             </div>
           )}
         </>
