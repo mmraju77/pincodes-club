@@ -37,18 +37,35 @@ export default function PincodesHubPage() {
     setIsSearching(true);
     try {
       const safeQuery = query.trim();
-      const dbQuery = safeQuery.replace(/\s+/g, '%'); 
       
-      let q = supabase.from('pincodes').select('*').limit(40);
+      // FIX: Made the global search much more robust to ensure no village is missed (e.g. Gajuwaka)
+      let q = supabase.from('pincodes').select('*').limit(100);
 
       if (/^\d+$/.test(safeQuery)) {
         q = q.eq('pincode', Number(safeQuery));
       } else {
-        q = q.or(`officename.ilike.%${dbQuery}%,districtname.ilike.%${dbQuery}%,statename.ilike.%${dbQuery}%,divisionname.ilike.%${dbQuery}%`);
+        // Using strict exact partial match to pull data accurately
+        q = q.or(`officename.ilike.%${safeQuery}%,districtname.ilike.%${safeQuery}%,divisionname.ilike.%${safeQuery}%`);
       }
 
       const { data, error } = await q;
-      if (data) setSearchResults(data);
+      if (error) throw error;
+      
+      if (data) {
+        // Sort results to show exact matches first
+        const sortedData = data.sort((a, b) => {
+           const aName = (a.officename || '').toLowerCase();
+           const bName = (b.officename || '').toLowerCase();
+           const sq = safeQuery.toLowerCase();
+           
+           if (aName === sq) return -1;
+           if (bName === sq) return 1;
+           if (aName.startsWith(sq)) return -1;
+           if (bName.startsWith(sq)) return 1;
+           return 0;
+        });
+        setSearchResults(sortedData);
+      }
     } catch (err) {
       console.error("Search error:", err);
     }
@@ -198,7 +215,7 @@ export default function PincodesHubPage() {
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {filteredStates.map((stateName, index) => (
+          {INDIAN_STATES.map((stateName, index) => (
             <Link key={index} href={`/pin-codes/${encodeURIComponent(stateName)}`} className="group block">
               <div className="bg-[#0f172a] border border-slate-800 p-4 rounded-xl flex items-center gap-3 hover:bg-slate-800 hover:border-orange-500/30 cursor-pointer transition-all shadow-sm">
                 <div className="text-slate-500 group-hover:text-orange-400 transition-colors shrink-0">

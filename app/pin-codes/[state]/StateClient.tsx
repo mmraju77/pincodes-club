@@ -74,6 +74,7 @@ export default function StateClient() {
         
         const finalData = allData.filter((row: any) => {
           const rStr = JSON.stringify(row).toLowerCase().replace(/[^a-z]/g, '');
+          
           if (normalizedTarget.includes('pudu') || normalizedTarget.includes('pondi')) return rStr.includes('pudu') || rStr.includes('pondi');
           if (normalizedTarget.includes('andaman') || normalizedTarget.includes('nicobar')) {
             return rStr.includes('andaman') || rStr.includes('nicobar') || rStr.includes('a&n') || rStr.includes('aandn');
@@ -98,6 +99,7 @@ export default function StateClient() {
           if (normalizedTarget.includes('maharashtra')) return !rStr.includes('goa');
           if (normalizedTarget.includes('kerala')) return !rStr.includes('lakshadweep');
           if (normalizedTarget.includes('chhattisgarh') || normalizedTarget.includes('chattisgarh')) return rStr.includes('chattis');
+          
           return true;
         });
 
@@ -132,19 +134,35 @@ export default function StateClient() {
     try {
       const keyword = getSafeKeyword(decodedState);
       const safeQuery = query.trim();
-      const dbQuery = safeQuery.replace(/\s+/g, '%');
       
-      let q = supabase.from('pincodes').select('*').or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`).limit(100);
+      // FIX: Deep Search modified to fetch exact village names independently of the loaded district list.
+      let q = supabase.from('pincodes').select('*')
+        .or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`)
+        .limit(100);
 
       if (/^\d+$/.test(safeQuery)) {
         q = q.eq('pincode', Number(safeQuery));
       } else {
-        q = q.or(`officename.ilike.%${dbQuery}%,districtname.ilike.%${dbQuery}%,divisionname.ilike.%${dbQuery}%`);
+        q = q.or(`officename.ilike.%${safeQuery}%,districtname.ilike.%${safeQuery}%,divisionname.ilike.%${safeQuery}%`);
       }
 
       const { data, error } = await q;
       if (error) throw error;
-      if (data) setSearchResults(data.slice(0, 40));
+      
+      if (data) {
+          const sortedData = data.sort((a, b) => {
+             const aName = (a.officename || '').toLowerCase();
+             const bName = (b.officename || '').toLowerCase();
+             const sq = safeQuery.toLowerCase();
+             
+             if (aName === sq) return -1;
+             if (bName === sq) return 1;
+             if (aName.startsWith(sq)) return -1;
+             if (bName.startsWith(sq)) return 1;
+             return 0;
+          });
+          setSearchResults(sortedData.slice(0, 40));
+      }
     } catch (err: any) {
       console.error("Search error:", err);
     }
