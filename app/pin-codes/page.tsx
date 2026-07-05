@@ -21,6 +21,7 @@ export default function PincodesHubPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [isListening, setIsListening] = useState(false);
 
+  // Speed Optimization: Increased debounce to 500ms to reduce database load
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       if (searchQuery.trim().length > 2) {
@@ -28,7 +29,7 @@ export default function PincodesHubPage() {
       } else {
         setSearchResults([]);
       }
-    }, 300);
+    }, 500);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
@@ -37,13 +38,13 @@ export default function PincodesHubPage() {
     setIsSearching(true);
     try {
       const safeQuery = query.trim();
-      const dbQuery = safeQuery.replace(/\s+/g, '%'); 
-      
-      let q = supabase.from('pincodes').select('*').limit(20);
+      // Ultra fast query: We only fetch what we need
+      let q = supabase.from('pincodes').select('pincode, officename, officetype, district, statename, circlename, divisionname').limit(16);
 
       if (/^\d+$/.test(safeQuery)) {
         q = q.eq('pincode', Number(safeQuery));
       } else {
+        const dbQuery = safeQuery.replace(/\s+/g, '%'); 
         q = q.or(`officename.ilike.%${dbQuery}%,district.ilike.%${dbQuery}%,divisionname.ilike.%${dbQuery}%`);
       }
 
@@ -51,7 +52,6 @@ export default function PincodesHubPage() {
       if (error) throw error;
       
       if (data) {
-        // Priority Sorting: Exact matches appear at the top
         const sortedData = data.sort((a, b) => {
            const aName = (a.officename || '').toLowerCase();
            const bName = (b.officename || '').toLowerCase();
@@ -59,16 +59,12 @@ export default function PincodesHubPage() {
            
            if (aName === sq || aName === `${sq} s.o` || aName === `${sq} b.o`) return -1;
            if (bName === sq || bName === `${sq} s.o` || bName === `${sq} b.o`) return 1;
-           
            if (aName.startsWith(sq)) return -1;
            if (bName.startsWith(sq)) return 1;
-           
            return 0;
         });
         
-        // Remove exact duplicates based on Pincode and Officename
         const uniqueResults = sortedData.filter((v, i, a) => a.findIndex(t => (t.pincode === v.pincode && t.officename === v.officename)) === i);
-        
         setSearchResults(uniqueResults);
       }
     } catch (err) {
@@ -81,10 +77,8 @@ export default function PincodesHubPage() {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
-      
       recognition.continuous = false;
       recognition.lang = 'en-IN'; 
-
       recognition.onstart = () => setIsListening(true);
       recognition.onresult = (event: any) => {
         let transcript = event.results[0][0].transcript;
@@ -107,7 +101,6 @@ export default function PincodesHubPage() {
 
   return (
     <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 min-h-screen space-y-10">
-      
       <div className="bg-[#0f172a] p-6 md:p-8 rounded-2xl border border-slate-800 shadow-xl flex flex-col lg:flex-row justify-between items-center gap-6">
         <div className="flex-1 text-center lg:text-left">
           <span className="bg-orange-500/10 text-orange-400 text-xs font-bold px-3 py-1 rounded-md mb-3 inline-block border border-orange-500/20 uppercase tracking-wider">
@@ -145,7 +138,6 @@ export default function PincodesHubPage() {
 
       {searchQuery.trim().length > 0 ? (
         <div className="space-y-10">
-          
           {filteredStates.length > 0 && (
             <div>
               <h2 className="text-xl font-bold text-white border-b border-slate-800 pb-3 mb-4">
@@ -159,9 +151,7 @@ export default function PincodesHubPage() {
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m3-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                       </div>
                       <div>
-                        <h3 className="text-white font-semibold text-sm leading-tight group-hover:text-orange-50 transition-colors line-clamp-2">
-                          {stateName}
-                        </h3>
+                        <h3 className="text-white font-semibold text-sm leading-tight group-hover:text-orange-50 transition-colors line-clamp-2">{stateName}</h3>
                       </div>
                     </div>
                   </Link>
@@ -185,20 +175,12 @@ export default function PincodesHubPage() {
                     const sName = item.statename || item.circlename || 'India';
                     const dName = item.district || item.districtname || item.Districtname || item.divisionname || 'Unknown';
                     return (
-                      <Link 
-                        key={index}
-                        href={`/pin-codes/${encodeURIComponent(sName)}/${encodeURIComponent(dName)}/${item.pincode}`}
-                        className="group block h-full"
-                      >
+                      <Link key={index} href={`/pin-codes/${encodeURIComponent(sName)}/${encodeURIComponent(dName)}/${item.pincode}`} className="group block h-full">
                         <div className="bg-[#0f172a] p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all cursor-pointer h-full shadow-md flex flex-col justify-between">
                           <div className="mb-3">
                             <div className="flex justify-between items-start gap-2 mb-2">
-                               <h3 className="text-base font-bold text-white group-hover:text-orange-400 transition-colors line-clamp-1" title={item.officename}>
-                                 {item.officename}
-                               </h3>
-                               <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 font-bold px-2 py-0.5 rounded text-xs shrink-0">
-                                 {item.pincode}
-                               </span>
+                               <h3 className="text-base font-bold text-white group-hover:text-orange-400 transition-colors line-clamp-1" title={item.officename}>{item.officename}</h3>
+                               <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 font-bold px-2 py-0.5 rounded text-xs shrink-0">{item.pincode}</span>
                             </div>
                             <span className="text-[10px] uppercase text-slate-500 font-semibold">{item.officetype || 'POST OFFICE'}</span>
                           </div>
@@ -218,7 +200,6 @@ export default function PincodesHubPage() {
               )}
             </div>
           )}
-
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -228,11 +209,7 @@ export default function PincodesHubPage() {
                 <div className="text-slate-500 group-hover:text-orange-400 transition-colors shrink-0">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m3-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                 </div>
-                <div>
-                  <h3 className="text-white font-semibold text-sm leading-tight group-hover:text-orange-50 transition-colors line-clamp-2">
-                    {stateName}
-                  </h3>
-                </div>
+                <div><h3 className="text-white font-semibold text-sm leading-tight group-hover:text-orange-50 transition-colors line-clamp-2">{stateName}</h3></div>
               </div>
             </Link>
           ))}

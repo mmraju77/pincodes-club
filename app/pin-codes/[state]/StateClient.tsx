@@ -52,9 +52,10 @@ export default function StateClient() {
       const pageSize = 1000;
       
       while (keepFetching) {
+        // Optimized DB call to only fetch what's needed for district list
         const { data, error } = await supabase
           .from('pincodes')
-          .select('*')
+          .select('district, districtname, Districtname, divisionname')
           .or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`)
           .range(offset, offset + pageSize - 1);
 
@@ -70,41 +71,8 @@ export default function StateClient() {
       }
       
       if (allData.length > 0) {
-        const normalizedTarget = stateName.toLowerCase().replace(/[^a-z]/g, '');
-        
-        const finalData = allData.filter((row: any) => {
-          const rStr = JSON.stringify(row).toLowerCase().replace(/[^a-z]/g, '');
-          
-          if (normalizedTarget.includes('pudu') || normalizedTarget.includes('pondi')) return rStr.includes('pudu') || rStr.includes('pondi');
-          if (normalizedTarget.includes('andaman') || normalizedTarget.includes('nicobar')) {
-            return rStr.includes('andaman') || rStr.includes('nicobar') || rStr.includes('a&n') || rStr.includes('aandn');
-          }
-          if (normalizedTarget.includes('sikkim')) return rStr.includes('sikkim');
-          if (normalizedTarget.includes('arunachal')) return rStr.includes('arunachal');
-          if (normalizedTarget.includes('manipur')) return rStr.includes('manipur');
-          if (normalizedTarget.includes('meghalaya')) return rStr.includes('meghalaya');
-          if (normalizedTarget.includes('mizoram')) return rStr.includes('mizoram');
-          if (normalizedTarget.includes('nagaland')) return rStr.includes('nagaland');
-          if (normalizedTarget.includes('tripura')) return rStr.includes('tripura');
-          if (normalizedTarget.includes('chandigarh')) return rStr.includes('chandigarh');
-          if (normalizedTarget.includes('dadra') || normalizedTarget.includes('nagar')) return rStr.includes('dadra') || rStr.includes('nagar');
-          if (normalizedTarget.includes('daman') || normalizedTarget.includes('diu')) return rStr.includes('daman') || rStr.includes('diu');
-          if (normalizedTarget.includes('goa')) return rStr.includes('goa');
-          if (normalizedTarget.includes('lakshadweep')) return rStr.includes('lakshadweep');
-          
-          if (normalizedTarget.includes('tamil')) return !(rStr.includes('pudu') || rStr.includes('pondi'));
-          if (normalizedTarget.includes('bengal')) return !(rStr.includes('andaman') || rStr.includes('sikkim') || rStr.includes('nicobar') || rStr.includes('a&n'));
-          if (normalizedTarget.includes('punjab')) return !rStr.includes('chandigarh');
-          if (normalizedTarget.includes('gujarat')) return !(rStr.includes('dadra') || rStr.includes('daman') || rStr.includes('diu') || rStr.includes('nagar'));
-          if (normalizedTarget.includes('maharashtra')) return !rStr.includes('goa');
-          if (normalizedTarget.includes('kerala')) return !rStr.includes('lakshadweep');
-          if (normalizedTarget.includes('chhattisgarh') || normalizedTarget.includes('chattisgarh')) return rStr.includes('chattis');
-          
-          return true;
-        });
-
         const uniqueDistricts = Array.from(
-          new Set(finalData.map((d: any) => d.district || d.districtname || d.Districtname || d.divisionname).filter(Boolean))
+          new Set(allData.map((d: any) => d.district || d.districtname || d.Districtname || d.divisionname).filter(Boolean))
         );
         uniqueDistricts.sort();
         setDistrictsList(uniqueDistricts as string[]);
@@ -124,7 +92,7 @@ export default function StateClient() {
       } else {
         setSearchResults([]);
       }
-    }, 300);
+    }, 500); // 500ms debounce for lightning fast perceived performance
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
@@ -136,12 +104,12 @@ export default function StateClient() {
       const safeQuery = query.trim();
       const dbQuery = safeQuery.replace(/\s+/g, '%');
       
-      let q = supabase.from('pincodes').select('*').or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`).limit(20);
+      // Limit to 16 for ultra-fast loading
+      let q = supabase.from('pincodes').select('pincode, officename, officetype, district, statename, circlename, divisionname').or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`).limit(16);
 
       if (/^\d+$/.test(safeQuery)) {
         q = q.eq('pincode', Number(safeQuery));
       } else {
-        // Safe query preventing DB crashes
         q = q.or(`officename.ilike.%${dbQuery}%,district.ilike.%${dbQuery}%,divisionname.ilike.%${dbQuery}%`);
       }
 
@@ -156,15 +124,12 @@ export default function StateClient() {
              
              if (aName === sq || aName === `${sq} s.o` || aName === `${sq} b.o`) return -1;
              if (bName === sq || bName === `${sq} s.o` || bName === `${sq} b.o`) return 1;
-             
              if (aName.startsWith(sq)) return -1;
              if (bName.startsWith(sq)) return 1;
-             
              return 0;
           });
           
           const uniqueResults = sortedData.filter((v, i, a) => a.findIndex(t => (t.pincode === v.pincode && t.officename === v.officename)) === i);
-
           setSearchResults(uniqueResults);
       }
     } catch (err: any) {
@@ -177,10 +142,8 @@ export default function StateClient() {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
-      
       recognition.continuous = false;
       recognition.lang = 'en-IN'; 
-
       recognition.onstart = () => setIsListening(true);
       recognition.onresult = (event: any) => {
         let transcript = event.results[0][0].transcript;
@@ -203,7 +166,6 @@ export default function StateClient() {
 
   return (
     <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 min-h-screen space-y-10">
-      
       <div className="bg-[#0f172a] p-6 md:p-8 rounded-2xl border border-slate-800 shadow-xl flex flex-col lg:flex-row justify-between items-center gap-6">
         <div className="flex-1 text-center lg:text-left">
           <div className="flex items-center gap-3 flex-wrap justify-center lg:justify-start mb-3">

@@ -77,9 +77,10 @@ export default function DistrictClient() {
       const pageSize = 1000;
 
       while (keepFetching) {
+        // Optimized to fetch exactly what is needed for rendering
         const { data, error } = await supabase
           .from('pincodes')
-          .select('*')
+          .select('pincode, officename, officetype, district, districtname, Districtname, divisionname')
           .or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`)
           .range(offset, offset + pageSize - 1);
         
@@ -102,44 +103,20 @@ export default function DistrictClient() {
         const normalizedTargetDistrict = districtName.toLowerCase().replace(/[^a-z]/g, '');
         
         const finalData = allData.filter((row: any) => {
-          const rStr = JSON.stringify(row).toLowerCase().replace(/[^a-z]/g, '');
-          const dNameRaw = row.districtname || row.Districtname || row.district || row.divisionname || '';
+          const dNameRaw = row.district || row.districtname || row.Districtname || row.divisionname || '';
           const dName = dNameRaw.toLowerCase().replace(/[^a-z]/g, '');
           
           const isDistrictMatch = dName === normalizedTargetDistrict || dName.includes(normalizedTargetDistrict) || normalizedTargetDistrict.includes(dName);
           if (!isDistrictMatch) return false;
-
-          if (normalizedTargetState.includes('andaman') || normalizedTargetState.includes('nicobar')) {
-            return rStr.includes('andaman') || rStr.includes('nicobar') || rStr.includes('a&n') || rStr.includes('aandn');
-          }
-
-          if (normalizedTargetState.includes('pudu') || normalizedTargetState.includes('pondi')) return rStr.includes('pudu') || rStr.includes('pondi');
-          if (normalizedTargetState.includes('sikkim')) return rStr.includes('sikkim');
-          if (normalizedTargetState.includes('arunachal')) return rStr.includes('arunachal');
-          if (normalizedTargetState.includes('manipur')) return rStr.includes('manipur');
-          if (normalizedTargetState.includes('meghalaya')) return rStr.includes('meghalaya');
-          if (normalizedTargetState.includes('mizoram')) return rStr.includes('mizoram');
-          if (normalizedTargetState.includes('nagaland')) return rStr.includes('nagaland');
-          if (normalizedTargetState.includes('tripura')) return rStr.includes('tripura');
-          if (normalizedTargetState.includes('chandigarh')) return rStr.includes('chandigarh');
-          if (normalizedTargetState.includes('dadra') || normalizedTargetState.includes('nagar')) return rStr.includes('dadra') || rStr.includes('nagar');
-          if (normalizedTargetState.includes('daman') || normalizedTargetState.includes('diu')) return rStr.includes('daman') || rStr.includes('diu');
-          if (normalizedTargetState.includes('goa')) return rStr.includes('goa');
-          if (normalizedTargetState.includes('lakshadweep')) return rStr.includes('lakshadweep');
-          
-          if (normalizedTargetState.includes('tamil')) return !(rStr.includes('pudu') || rStr.includes('pondi'));
-          if (normalizedTargetState.includes('bengal')) return !(rStr.includes('andaman') || rStr.includes('sikkim') || rStr.includes('nicobar') || rStr.includes('a&n'));
-          if (normalizedTargetState.includes('punjab')) return !rStr.includes('chandigarh');
-          if (normalizedTargetState.includes('gujarat')) return !(rStr.includes('dadra') || rStr.includes('daman') || rStr.includes('diu') || rStr.includes('nagar'));
-          if (normalizedTargetState.includes('maharashtra')) return !rStr.includes('goa');
-          if (normalizedTargetState.includes('kerala')) return !rStr.includes('lakshadweep');
-          if (normalizedTargetState.includes('chhattisgarh') || normalizedTargetState.includes('chattisgarh')) return rStr.includes('chattis');
           
           return true;
         });
 
-        finalData.sort((a, b) => (a.officename || '').localeCompare(b.officename || ''));
-        setPincodesList(finalData);
+        // Ensure unique records and sort alphabetically
+        const uniqueData = finalData.filter((v, i, a) => a.findIndex(t => (t.pincode === v.pincode && t.officename === v.officename)) === i);
+        uniqueData.sort((a, b) => (a.officename || '').localeCompare(b.officename || ''));
+        
+        setPincodesList(uniqueData);
       }
     } catch (err: any) {
       console.error("Fetch Error:", err.message);
