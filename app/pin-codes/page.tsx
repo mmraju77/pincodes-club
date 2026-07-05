@@ -23,6 +23,7 @@ export default function PincodesHubPage() {
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
+      // FIX: Only search database if user types more than 2 letters (e.g. "and")
       if (searchQuery.trim().length > 2) {
         performSearch(searchQuery.trim());
       } else {
@@ -37,22 +38,20 @@ export default function PincodesHubPage() {
     setIsSearching(true);
     try {
       const safeQuery = query.trim();
+      const dbQuery = safeQuery.replace(/\s+/g, '%'); 
       
-      // FIX: Made the global search much more robust to ensure no village is missed (e.g. Gajuwaka)
-      let q = supabase.from('pincodes').select('*').limit(100);
+      let q = supabase.from('pincodes').select('*').limit(60);
 
       if (/^\d+$/.test(safeQuery)) {
         q = q.eq('pincode', Number(safeQuery));
       } else {
-        // Using strict exact partial match to pull data accurately
-        q = q.or(`officename.ilike.%${safeQuery}%,districtname.ilike.%${safeQuery}%,divisionname.ilike.%${safeQuery}%`);
+        q = q.or(`officename.ilike.%${dbQuery}%,districtname.ilike.%${dbQuery}%,statename.ilike.%${dbQuery}%,divisionname.ilike.%${dbQuery}%`);
       }
 
       const { data, error } = await q;
       if (error) throw error;
       
       if (data) {
-        // Sort results to show exact matches first
         const sortedData = data.sort((a, b) => {
            const aName = (a.officename || '').toLowerCase();
            const bName = (b.officename || '').toLowerCase();
@@ -96,7 +95,10 @@ export default function PincodesHubPage() {
     }
   };
 
-  const filteredStates = INDIAN_STATES.filter(s => s.toLowerCase().includes(searchQuery.toLowerCase().trim()));
+  // Only filter states if user has typed something
+  const filteredStates = searchQuery.trim() !== '' 
+    ? INDIAN_STATES.filter(s => s.toLowerCase().replace(/\s+/g, '').includes(searchQuery.toLowerCase().replace(/\s+/g, '')))
+    : INDIAN_STATES;
 
   return (
     <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 min-h-screen space-y-10">
@@ -136,7 +138,7 @@ export default function PincodesHubPage() {
         </div>
       </div>
 
-      {searchQuery.trim().length > 2 ? (
+      {searchQuery.trim().length > 0 ? (
         <div className="space-y-10">
           
           {/* States Results */}
@@ -164,53 +166,55 @@ export default function PincodesHubPage() {
             </div>
           )}
 
-          {/* Post Offices Results */}
-          <div>
-            <h2 className="text-xl font-bold text-white border-b border-slate-800 pb-3 mb-4">
-              Villages & Post Offices matching "{searchQuery}"
-            </h2>
-            {isSearching ? (
-               <div className="py-12 text-center">
-                 <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-               </div>
-            ) : searchResults.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {searchResults.map((item, index) => {
-                  const sName = item.statename || item.circlename || 'India';
-                  const dName = item.districtname || item.Districtname || item.district || item.divisionname || 'Unknown';
-                  return (
-                    <Link 
-                      key={index}
-                      href={`/pin-codes/${encodeURIComponent(sName)}/${encodeURIComponent(dName)}/${item.pincode}`}
-                      className="group block h-full"
-                    >
-                      <div className="bg-[#0f172a] p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all cursor-pointer h-full shadow-md flex flex-col justify-between">
-                        <div className="mb-3">
-                          <div className="flex justify-between items-start gap-2 mb-2">
-                             <h3 className="text-base font-bold text-white group-hover:text-orange-400 transition-colors line-clamp-1">
-                               {item.officename}
-                             </h3>
-                             <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 font-bold px-2 py-0.5 rounded text-xs shrink-0">
-                               {item.pincode}
-                             </span>
+          {/* Post Offices Results - Only show if > 2 characters */}
+          {searchQuery.trim().length > 2 && (
+            <div>
+              <h2 className="text-xl font-bold text-white border-b border-slate-800 pb-3 mb-4">
+                Villages & Post Offices matching "{searchQuery}"
+              </h2>
+              {isSearching ? (
+                 <div className="py-12 text-center">
+                   <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                 </div>
+              ) : searchResults.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {searchResults.map((item, index) => {
+                    const sName = item.statename || item.circlename || 'India';
+                    const dName = item.districtname || item.Districtname || item.district || item.divisionname || 'Unknown';
+                    return (
+                      <Link 
+                        key={index}
+                        href={`/pin-codes/${encodeURIComponent(sName)}/${encodeURIComponent(dName)}/${item.pincode}`}
+                        className="group block h-full"
+                      >
+                        <div className="bg-[#0f172a] p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all cursor-pointer h-full shadow-md flex flex-col justify-between">
+                          <div className="mb-3">
+                            <div className="flex justify-between items-start gap-2 mb-2">
+                               <h3 className="text-base font-bold text-white group-hover:text-orange-400 transition-colors line-clamp-1" title={item.officename}>
+                                 {item.officename}
+                               </h3>
+                               <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 font-bold px-2 py-0.5 rounded text-xs shrink-0">
+                                 {item.pincode}
+                               </span>
+                            </div>
+                            <span className="text-[10px] uppercase text-slate-500 font-semibold">{item.officetype || 'POST OFFICE'}</span>
                           </div>
-                          <span className="text-[10px] uppercase text-slate-500 font-semibold">{item.officetype || 'POST OFFICE'}</span>
+                          <div className="mt-auto text-xs text-slate-400 space-y-1">
+                            <p className="line-clamp-1">Dist: <span className="text-slate-200">{dName}</span></p>
+                            <p className="line-clamp-1">State: <span className="text-slate-200">{sName}</span></p>
+                          </div>
                         </div>
-                        <div className="mt-auto text-xs text-slate-400 space-y-1">
-                          <p className="line-clamp-1">Dist: <span className="text-slate-200">{dName}</span></p>
-                          <p className="line-clamp-1">State: <span className="text-slate-200">{sName}</span></p>
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-8 bg-[#0f172a] rounded-xl border border-slate-800">
-                <p className="text-slate-400 text-sm">No post offices found for "{searchQuery}".</p>
-              </div>
-            )}
-          </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-[#0f172a] rounded-xl border border-slate-800">
+                  <p className="text-slate-400 text-sm">No post offices found for "{searchQuery}".</p>
+                </div>
+              )}
+            </div>
+          )}
 
         </div>
       ) : (
