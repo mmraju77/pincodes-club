@@ -104,7 +104,7 @@ export default function StateClient() {
         });
 
         const uniqueDistricts = Array.from(
-          new Set(finalData.map((d: any) => d.districtname || d.Districtname || d.district || d.divisionname).filter(Boolean))
+          new Set(finalData.map((d: any) => d.district || d.districtname || d.Districtname || d.divisionname).filter(Boolean))
         );
         uniqueDistricts.sort();
         setDistrictsList(uniqueDistricts as string[]);
@@ -141,15 +141,11 @@ export default function StateClient() {
       if (/^\d+$/.test(safeQuery)) {
         q = q.eq('pincode', Number(safeQuery));
       } else {
-        // బగ్ ఫిక్స్: డేటాబేస్ క్రాష్ అవ్వకుండా కేవలం 100% పక్కాగా ఉన్న కాలమ్స్ లోనే వెతుకుతుంది
-        q = q.or(`officename.ilike.%${dbQuery}%,divisionname.ilike.%${dbQuery}%`);
+        q = q.or(`officename.ilike.%${dbQuery}%,district.ilike.%${dbQuery}%,divisionname.ilike.%${dbQuery}%`);
       }
 
       const { data, error } = await q;
-      if (error) {
-         console.error("Database Search Error:", error.message);
-         throw error;
-      }
+      if (error) throw error;
       
       if (data) {
           const sortedData = data.sort((a, b) => {
@@ -216,7 +212,7 @@ export default function StateClient() {
           <h1 className="text-3xl md:text-4xl font-black text-white mb-2 tracking-tight">
             Districts in {decodedState.toUpperCase()}
           </h1>
-          <p className="text-slate-400 text-sm md:text-base">Select a district or search for any village/post office.</p>
+          <p className="text-slate-400 text-sm md:text-base">Browse by state, district, and village, or search any post office details.</p>
           {errorMessage && (
             <p className="text-red-400 mt-3 bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20 inline-block text-sm">
               Error: {errorMessage}
@@ -286,7 +282,7 @@ export default function StateClient() {
             ) : searchResults.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {searchResults.map((item, index) => {
-                  const dName = item.districtname || item.Districtname || item.district || item.divisionname || 'Unknown';
+                  const dName = item.district || item.districtname || item.Districtname || item.divisionname || 'Unknown';
                   return (
                     <Link 
                       key={index}

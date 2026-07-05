@@ -44,16 +44,12 @@ export default function PincodesHubPage() {
       if (/^\d+$/.test(safeQuery)) {
         q = q.eq('pincode', Number(safeQuery));
       } else {
-        // బగ్ ఫిక్స్: డేటాబేస్ క్రాష్ అవ్వకుండా కేవలం 100% పక్కాగా ఉన్న కాలమ్స్ లోనే వెతుకుతుంది
-        q = q.or(`officename.ilike.%${dbQuery}%,divisionname.ilike.%${dbQuery}%,statename.ilike.%${dbQuery}%,circlename.ilike.%${dbQuery}%`);
+        // Ultimate Fix: Added 'district' back into the search logic seamlessly!
+        q = q.or(`officename.ilike.%${dbQuery}%,district.ilike.%${dbQuery}%,statename.ilike.%${dbQuery}%,divisionname.ilike.%${dbQuery}%`);
       }
 
       const { data, error } = await q;
-      
-      if (error) {
-        console.error("Database Search Error:", error.message);
-        throw error;
-      }
+      if (error) throw error;
       
       if (data) {
         const sortedData = data.sort((a, b) => {
@@ -70,7 +66,7 @@ export default function PincodesHubPage() {
         setSearchResults(sortedData);
       }
     } catch (err) {
-      console.error("Search failed:", err);
+      console.error("Search error:", err);
     }
     setIsSearching(false);
   };
@@ -181,7 +177,7 @@ export default function PincodesHubPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {searchResults.map((item, index) => {
                     const sName = item.statename || item.circlename || 'India';
-                    const dName = item.districtname || item.Districtname || item.district || item.divisionname || 'Unknown';
+                    const dName = item.district || item.districtname || item.Districtname || item.divisionname || 'Unknown';
                     return (
                       <Link 
                         key={index}
