@@ -124,7 +124,7 @@ export default function StateClient() {
       } else {
         setSearchResults([]);
       }
-    }, 500);
+    }, 300);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
@@ -136,11 +136,12 @@ export default function StateClient() {
       const safeQuery = query.trim();
       const dbQuery = safeQuery.replace(/\s+/g, '%');
       
-      let q = supabase.from('pincodes').select('*').or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`).limit(100);
+      let q = supabase.from('pincodes').select('*').or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`).limit(20);
 
       if (/^\d+$/.test(safeQuery)) {
         q = q.eq('pincode', Number(safeQuery));
       } else {
+        // Safe query preventing DB crashes
         q = q.or(`officename.ilike.%${dbQuery}%,district.ilike.%${dbQuery}%,divisionname.ilike.%${dbQuery}%`);
       }
 
@@ -153,13 +154,18 @@ export default function StateClient() {
              const bName = (b.officename || '').toLowerCase();
              const sq = safeQuery.toLowerCase();
              
-             if (aName === sq) return -1;
-             if (bName === sq) return 1;
+             if (aName === sq || aName === `${sq} s.o` || aName === `${sq} b.o`) return -1;
+             if (bName === sq || bName === `${sq} s.o` || bName === `${sq} b.o`) return 1;
+             
              if (aName.startsWith(sq)) return -1;
              if (bName.startsWith(sq)) return 1;
+             
              return 0;
           });
-          setSearchResults(sortedData.slice(0, 40));
+          
+          const uniqueResults = sortedData.filter((v, i, a) => a.findIndex(t => (t.pincode === v.pincode && t.officename === v.officename)) === i);
+
+          setSearchResults(uniqueResults);
       }
     } catch (err: any) {
       console.error("Search error:", err);

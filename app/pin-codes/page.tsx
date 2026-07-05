@@ -28,7 +28,7 @@ export default function PincodesHubPage() {
       } else {
         setSearchResults([]);
       }
-    }, 500);
+    }, 300);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
@@ -39,31 +39,37 @@ export default function PincodesHubPage() {
       const safeQuery = query.trim();
       const dbQuery = safeQuery.replace(/\s+/g, '%'); 
       
-      let q = supabase.from('pincodes').select('*').limit(60);
+      let q = supabase.from('pincodes').select('*').limit(20);
 
       if (/^\d+$/.test(safeQuery)) {
         q = q.eq('pincode', Number(safeQuery));
       } else {
-        // Ultimate Fix: Added 'district' back into the search logic seamlessly!
-        q = q.or(`officename.ilike.%${dbQuery}%,district.ilike.%${dbQuery}%,statename.ilike.%${dbQuery}%,divisionname.ilike.%${dbQuery}%`);
+        q = q.or(`officename.ilike.%${dbQuery}%,district.ilike.%${dbQuery}%,divisionname.ilike.%${dbQuery}%`);
       }
 
       const { data, error } = await q;
       if (error) throw error;
       
       if (data) {
+        // Priority Sorting: Exact matches appear at the top
         const sortedData = data.sort((a, b) => {
            const aName = (a.officename || '').toLowerCase();
            const bName = (b.officename || '').toLowerCase();
            const sq = safeQuery.toLowerCase();
            
-           if (aName === sq) return -1;
-           if (bName === sq) return 1;
+           if (aName === sq || aName === `${sq} s.o` || aName === `${sq} b.o`) return -1;
+           if (bName === sq || bName === `${sq} s.o` || bName === `${sq} b.o`) return 1;
+           
            if (aName.startsWith(sq)) return -1;
            if (bName.startsWith(sq)) return 1;
+           
            return 0;
         });
-        setSearchResults(sortedData);
+        
+        // Remove exact duplicates based on Pincode and Officename
+        const uniqueResults = sortedData.filter((v, i, a) => a.findIndex(t => (t.pincode === v.pincode && t.officename === v.officename)) === i);
+        
+        setSearchResults(uniqueResults);
       }
     } catch (err) {
       console.error("Search error:", err);
