@@ -23,7 +23,7 @@ export default function PincodesHubPage() {
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
-      if (searchQuery.length > 2) {
+      if (searchQuery.trim().length > 2) {
         performSearch(searchQuery.trim());
       } else {
         setSearchResults([]);
@@ -36,12 +36,14 @@ export default function PincodesHubPage() {
   const performSearch = async (query: string) => {
     setIsSearching(true);
     try {
+      const safeQuery = query.trim();
       let q = supabase.from('pincodes').select('*').limit(30);
 
-      if (/^\d+$/.test(query)) {
-        q = q.eq('pincode', Number(query));
+      // Ultimate Search Logic
+      if (/^\d+$/.test(safeQuery)) {
+        q = q.eq('pincode', Number(safeQuery));
       } else {
-        q = q.or(`officename.ilike.%${query}%,divisionname.ilike.%${query}%`);
+        q = q.or(`officename.ilike.%${safeQuery}%,districtname.ilike.%${safeQuery}%,statename.ilike.%${safeQuery}%,divisionname.ilike.%${safeQuery}%`);
       }
 
       const { data, error } = await q;
@@ -66,7 +68,14 @@ export default function PincodesHubPage() {
       recognition.onstart = () => setIsListening(true);
       recognition.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
-        setSearchQuery(transcript.replace(/[^a-zA-Z0-9 ]/g, ""));
+        // Voice Search Fix
+        let cleaned = transcript.replace(/[^\w\s]/gi, '').trim();
+        if (/^[\d\s]+$/.test(cleaned)) {
+            cleaned = cleaned.replace(/\s+/g, ''); 
+        } else {
+            cleaned = cleaned.replace(/\s+/g, ' '); 
+        }
+        setSearchQuery(cleaned);
         setIsListening(false);
       };
       recognition.onerror = () => setIsListening(false);
@@ -111,13 +120,13 @@ export default function PincodesHubPage() {
               onClick={startListening}
               className={`absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-slate-500 hover:text-orange-400'}`}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7-7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
             </div>
           </div>
         </div>
       </div>
 
-      {searchQuery.length > 2 ? (
+      {searchQuery.trim().length > 2 ? (
         <div className="space-y-6">
           <h2 className="text-xl font-bold text-white border-b border-slate-800 pb-3">
             Search Results for <span className="text-orange-400">"{searchQuery}"</span>

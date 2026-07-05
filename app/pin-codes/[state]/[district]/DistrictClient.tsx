@@ -55,7 +55,7 @@ export default function DistrictClient() {
   const [isListening, setIsListening] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 32; // Changed to 32 for better grid alignment in compact view
+  const itemsPerPage = 32;
 
   const params = useParams();
   const rawState = params?.state as string;
@@ -112,7 +112,7 @@ export default function DistrictClient() {
           const isDistrictMatch = dName === normalizedTargetDistrict || dName.includes(normalizedTargetDistrict) || normalizedTargetDistrict.includes(dName);
           if (!isDistrictMatch) return false;
 
-          // Andaman & Nicobar strict fallback fix (Checks for "A & N" as well)
+          // Andaman & Nicobar strict fallback fix
           if (normalizedTargetState.includes('andaman') || normalizedTargetState.includes('nicobar')) {
             return rStr.includes('andaman') || rStr.includes('nicobar') || rStr.includes('a&n') || rStr.includes('aandn');
           }
@@ -153,10 +153,12 @@ export default function DistrictClient() {
 
   const filteredPincodes = pincodesList.filter(item => {
     if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
+    const query = searchQuery.toLowerCase().trim();
+    // Ultimate local search logic
     const isNameMatch = item.officename?.toLowerCase().includes(query);
     const isPinMatch = item.pincode?.toString().includes(query);
-    return isNameMatch || isPinMatch;
+    const isDivMatch = item.divisionname?.toLowerCase().includes(query);
+    return isNameMatch || isPinMatch || isDivMatch;
   });
 
   const totalPages = Math.ceil(filteredPincodes.length / itemsPerPage);
@@ -173,7 +175,14 @@ export default function DistrictClient() {
       recognition.onstart = () => setIsListening(true);
       recognition.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
-        setSearchQuery(transcript.replace(/[^a-zA-Z0-9 ]/g, ""));
+        // Voice Search Fix
+        let cleaned = transcript.replace(/[^\w\s]/gi, '').trim();
+        if (/^[\d\s]+$/.test(cleaned)) {
+            cleaned = cleaned.replace(/\s+/g, ''); 
+        } else {
+            cleaned = cleaned.replace(/\s+/g, ' '); 
+        }
+        setSearchQuery(cleaned);
         setCurrentPage(1);
         setIsListening(false);
       };

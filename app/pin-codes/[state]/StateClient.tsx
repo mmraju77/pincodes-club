@@ -123,7 +123,7 @@ export default function StateClient() {
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
-      if (searchQuery.length > 2) {
+      if (searchQuery.trim().length > 2) {
         performDeepSearch(searchQuery.trim());
       } else {
         setSearchResults([]);
@@ -137,12 +137,14 @@ export default function StateClient() {
     setIsSearching(true);
     try {
       const keyword = getSafeKeyword(decodedState);
-      let q = supabase.from('pincodes').select('*').or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`).limit(300);
+      const safeQuery = query.trim();
+      let q = supabase.from('pincodes').select('*').or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`).limit(100);
 
-      if (/^\d+$/.test(query)) {
-        q = q.eq('pincode', Number(query));
+      // Ultimate Search Logic
+      if (/^\d+$/.test(safeQuery)) {
+        q = q.eq('pincode', Number(safeQuery));
       } else {
-        q = q.ilike('officename', `%${query}%`);
+        q = q.or(`officename.ilike.%${safeQuery}%,districtname.ilike.%${safeQuery}%,divisionname.ilike.%${safeQuery}%`);
       }
 
       const { data, error } = await q;
@@ -165,7 +167,14 @@ export default function StateClient() {
       recognition.onstart = () => setIsListening(true);
       recognition.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
-        setSearchQuery(transcript.replace(/[^a-zA-Z0-9 ]/g, ""));
+        // Voice Search Fix
+        let cleaned = transcript.replace(/[^\w\s]/gi, '').trim();
+        if (/^[\d\s]+$/.test(cleaned)) {
+            cleaned = cleaned.replace(/\s+/g, ''); 
+        } else {
+            cleaned = cleaned.replace(/\s+/g, ' '); 
+        }
+        setSearchQuery(cleaned);
         setIsListening(false);
       };
       recognition.onerror = () => setIsListening(false);
@@ -175,7 +184,7 @@ export default function StateClient() {
   };
 
   const filteredDistricts = districtsList.filter(d => 
-    d.toLowerCase().includes(searchQuery.toLowerCase())
+    d.toLowerCase().includes(searchQuery.toLowerCase().trim())
   );
 
   return (
@@ -223,7 +232,7 @@ export default function StateClient() {
         </div>
       </div>
 
-      {searchQuery.length > 2 && searchResults.length > 0 ? (
+      {searchQuery.trim().length > 2 && searchResults.length > 0 ? (
         <div className="space-y-6">
           <h2 className="text-xl font-bold text-white border-b border-slate-800 pb-3">
             Villages/Post Offices matching "{searchQuery}"
