@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { supabase } from '../../../../lib/supabase';
 
+// Phase 12.7: Bulletproof State Extractor with Andaman Fix for District Client
 const getSafeKeyword = (stateName: string) => {
   if (!stateName) return '';
   const s = stateName.toLowerCase().replace(/[^a-z]/g, '');
@@ -13,7 +14,7 @@ const getSafeKeyword = (stateName: string) => {
   if (s.includes('kerala') || s.includes('lakshadweep')) return 'kerala';
   if (s.includes('maharashtra') || s.includes('goa')) return 'maharashtra';
   if (s.includes('gujarat') || s.includes('daman') || s.includes('diu') || s.includes('dadra')) return 'gujarat';
-  if (s.includes('bengal') || s.includes('andaman') || s.includes('sikkim')) return 'bengal';
+  if (s.includes('bengal') || s.includes('andaman') || s.includes('nicobar') || s.includes('sikkim')) return 'bengal';
   if (s.includes('punjab') || s.includes('chandigarh')) return 'punjab';
   if (s.includes('jammu') || s.includes('kashmir')) return 'jammu';
   if (s.includes('arunachal') || s.includes('manipur') || s.includes('meghalaya') || s.includes('mizoram') || s.includes('nagaland') || s.includes('tripura')) return 'north';
@@ -54,7 +55,7 @@ export default function DistrictClient() {
   const [isListening, setIsListening] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 30;
+  const itemsPerPage = 32; // Changed to 32 for better grid alignment in compact view
 
   const params = useParams();
   const rawState = params?.state as string;
@@ -103,16 +104,20 @@ export default function DistrictClient() {
         const normalizedTargetState = decodedState.toLowerCase().replace(/[^a-z]/g, '');
         const normalizedTargetDistrict = districtName.toLowerCase().replace(/[^a-z]/g, '');
         
-        // Advanced JSON filtering for robustness
         const finalData = allData.filter((row: any) => {
           const rStr = JSON.stringify(row).toLowerCase().replace(/[^a-z]/g, '');
-          const dName = (row.districtname || row.Districtname || row.district || row.divisionname || '').toLowerCase().replace(/[^a-z]/g, '');
+          const dNameRaw = row.districtname || row.Districtname || row.district || row.divisionname || '';
+          const dName = dNameRaw.toLowerCase().replace(/[^a-z]/g, '');
           
           const isDistrictMatch = dName === normalizedTargetDistrict || dName.includes(normalizedTargetDistrict) || normalizedTargetDistrict.includes(dName);
           if (!isDistrictMatch) return false;
 
+          // Andaman & Nicobar strict fallback fix (Checks for "A & N" as well)
+          if (normalizedTargetState.includes('andaman') || normalizedTargetState.includes('nicobar')) {
+            return rStr.includes('andaman') || rStr.includes('nicobar') || rStr.includes('a&n') || rStr.includes('aandn');
+          }
+
           if (normalizedTargetState.includes('pudu') || normalizedTargetState.includes('pondi')) return rStr.includes('pudu') || rStr.includes('pondi');
-          if (normalizedTargetState.includes('andaman')) return rStr.includes('andaman');
           if (normalizedTargetState.includes('sikkim')) return rStr.includes('sikkim');
           if (normalizedTargetState.includes('arunachal')) return rStr.includes('arunachal');
           if (normalizedTargetState.includes('manipur')) return rStr.includes('manipur');
@@ -127,7 +132,7 @@ export default function DistrictClient() {
           if (normalizedTargetState.includes('lakshadweep')) return rStr.includes('lakshadweep');
           
           if (normalizedTargetState.includes('tamil')) return !(rStr.includes('pudu') || rStr.includes('pondi'));
-          if (normalizedTargetState.includes('bengal')) return !(rStr.includes('andaman') || rStr.includes('sikkim'));
+          if (normalizedTargetState.includes('bengal')) return !(rStr.includes('andaman') || rStr.includes('sikkim') || rStr.includes('nicobar') || rStr.includes('a&n'));
           if (normalizedTargetState.includes('punjab')) return !rStr.includes('chandigarh');
           if (normalizedTargetState.includes('gujarat')) return !(rStr.includes('dadra') || rStr.includes('daman') || rStr.includes('diu') || rStr.includes('nagar'));
           if (normalizedTargetState.includes('maharashtra')) return !rStr.includes('goa');
@@ -181,85 +186,90 @@ export default function DistrictClient() {
   const seoContent = getDistrictDescription(decodedDistrict, decodedState);
 
   return (
-    <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 min-h-screen space-y-10">
-      <div className="text-center mb-8">
-        <h1 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">
-          PIN Codes in {decodedDistrict.toUpperCase()}
-        </h1>
-        <p className="text-slate-400 text-lg">Browse all post offices in {decodedDistrict}, {decodedState}.</p>
-      </div>
-
-      <div className="flex flex-col lg:flex-row justify-between items-center gap-6 bg-[#0f172a] p-4 rounded-xl border border-slate-800">
-        <div className="flex items-center gap-3 flex-wrap">
-          <Link href="/pin-codes" className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg transition-colors text-sm">
-            ALL STATES
-          </Link>
-          <span className="text-slate-600 font-bold">&rarr;</span>
-          <Link href={`/pin-codes/${rawState}`} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg transition-colors text-sm">
-            {decodedState.toUpperCase()}
-          </Link>
-          <span className="text-slate-600 font-bold">&rarr;</span>
-          <span className="px-4 py-2 bg-orange-500/20 text-orange-400 border border-orange-500/30 font-bold rounded-lg text-sm">
-            {decodedDistrict.toUpperCase()}
-          </span>
+    <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 min-h-screen space-y-8">
+      
+      {/* Ultra Compact Header Navigation */}
+      <div className="bg-[#0f172a] p-6 md:p-8 rounded-2xl border border-slate-800 shadow-xl flex flex-col lg:flex-row justify-between items-center gap-6">
+        <div className="flex-1 text-center lg:text-left">
+          <div className="flex items-center gap-2 flex-wrap justify-center lg:justify-start mb-3">
+            <Link href="/pin-codes" className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg transition-colors text-xs">
+              ALL STATES
+            </Link>
+            <span className="text-slate-600 font-bold text-sm">&rarr;</span>
+            <Link href={`/pin-codes/${rawState}`} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg transition-colors text-xs uppercase">
+              {decodedState}
+            </Link>
+            <span className="text-slate-600 font-bold text-sm">&rarr;</span>
+            <span className="px-3 py-1.5 bg-orange-500/20 text-orange-400 border border-orange-500/30 font-bold rounded-lg text-xs uppercase">
+              {decodedDistrict}
+            </span>
+          </div>
+          <h1 className="text-3xl md:text-4xl font-black text-white mb-2 tracking-tight">
+            PIN Codes in {decodedDistrict.toUpperCase()}
+          </h1>
+          <p className="text-slate-400 text-sm md:text-base">Browse all post offices in {decodedDistrict}, {decodedState}.</p>
         </div>
 
-        <div className="w-full lg:w-80 relative group">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-          </div>
-          <input 
-            type="text" 
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
-            placeholder="Search within district..." 
-            className="w-full bg-slate-900/80 text-white border border-slate-700 rounded-lg pl-10 pr-12 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder-slate-500 text-sm"
-          />
-          <div onClick={startListening} className={`absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-slate-500 hover:text-orange-400'}`}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7-7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+        <div className="w-full lg:w-[400px]">
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            </div>
+            <input 
+              type="text" 
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="Search within district..." 
+              className="w-full bg-slate-900/50 text-white border border-slate-700 rounded-xl pl-10 pr-10 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder-slate-500 text-sm"
+            />
+            <div onClick={startListening} className={`absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-slate-500 hover:text-orange-400'}`}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7-7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+            </div>
           </div>
         </div>
       </div>
 
+      {/* SEO Optimized District Blog Content */}
       {seoContent && (
-        <div className="bg-slate-900/50 p-6 md:p-8 rounded-2xl border border-slate-800 shadow-sm text-slate-300 leading-relaxed text-sm md:text-base">
+        <div className="bg-slate-900/50 p-5 md:p-6 rounded-2xl border border-slate-800 shadow-sm text-slate-300 leading-relaxed text-sm">
           {seoContent}
         </div>
       )}
 
       {isLoading ? (
-        <div className="py-24 text-center">
-          <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400 font-medium">Fetching post offices...</p>
+        <div className="py-16 text-center">
+          <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-slate-400 font-medium text-sm">Fetching post offices...</p>
         </div>
       ) : (
         <>
           {currentResults.length > 0 ? (
             <div className="space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Ultra Compact Post Office Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {currentResults.map((item, index) => (
                   <Link 
                     key={index}
                     href={`/pin-codes/${encodeURIComponent(decodedState)}/${encodeURIComponent(decodedDistrict)}/${item.pincode}`}
                     className="group block h-full"
                   >
-                    <div className="bg-[#0f172a] p-6 rounded-2xl border border-slate-800 hover:border-orange-500/50 transition-all cursor-pointer h-full shadow-lg flex flex-col">
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <h3 className="text-xl font-bold text-white group-hover:text-orange-400 transition-colors">
+                    <div className="bg-[#0f172a] p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all cursor-pointer h-full shadow-md flex flex-col justify-between">
+                      <div className="mb-3">
+                        <div className="flex justify-between items-start gap-2 mb-2">
+                          <h3 className="text-base font-bold text-white group-hover:text-orange-400 transition-colors line-clamp-1" title={item.officename}>
                             {item.officename}
                           </h3>
-                          <span className="text-xs text-slate-400">{item.officetype || 'POST OFFICE'}</span>
+                          <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 font-bold px-2 py-0.5 rounded text-xs shrink-0">
+                            {item.pincode}
+                          </span>
                         </div>
-                        <span className="bg-orange-500 text-white font-black px-3 py-1 rounded-lg">
-                          {item.pincode}
-                        </span>
+                        <span className="text-[10px] uppercase text-slate-500 font-semibold">{item.officetype || 'POST OFFICE'}</span>
                       </div>
-                      <div className="mt-auto text-sm text-slate-400">
-                        <p>Division: <span className="text-slate-200">{item.divisionname}</span></p>
+                      <div className="mt-auto text-xs text-slate-400">
+                        <p className="line-clamp-1">Division: <span className="text-slate-200">{item.divisionname || 'N/A'}</span></p>
                       </div>
                     </div>
                   </Link>
@@ -267,18 +277,18 @@ export default function DistrictClient() {
               </div>
 
               {totalPages > 1 && (
-                <div className="flex justify-center items-center gap-4 pt-8 border-t border-slate-800/50">
+                <div className="flex justify-center items-center gap-3 pt-6 border-t border-slate-800/50">
                   <button 
                     onClick={() => {
                       setCurrentPage(p => Math.max(1, p - 1));
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                     disabled={currentPage === 1}
-                    className="px-6 py-3 bg-[#0f172a] border border-slate-800 hover:bg-slate-800 disabled:opacity-50 text-white font-bold rounded-xl transition-colors"
+                    className="px-4 py-2 bg-[#0f172a] border border-slate-800 hover:bg-slate-800 disabled:opacity-50 text-white font-bold rounded-lg transition-colors text-sm"
                   >
                     &larr; Prev
                   </button>
-                  <span className="text-slate-400 font-medium bg-[#0f172a] px-6 py-3 rounded-xl border border-slate-800">
+                  <span className="text-slate-400 font-medium bg-[#0f172a] px-4 py-2 rounded-lg border border-slate-800 text-sm">
                     <span className="text-white font-bold">{currentPage}</span> / {totalPages}
                   </span>
                   <button 
@@ -287,7 +297,7 @@ export default function DistrictClient() {
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                     disabled={currentPage === totalPages}
-                    className="px-6 py-3 bg-[#0f172a] border border-slate-800 hover:bg-slate-800 disabled:opacity-50 text-white font-bold rounded-xl transition-colors"
+                    className="px-4 py-2 bg-[#0f172a] border border-slate-800 hover:bg-slate-800 disabled:opacity-50 text-white font-bold rounded-lg transition-colors text-sm"
                   >
                     Next &rarr;
                   </button>
@@ -295,9 +305,9 @@ export default function DistrictClient() {
               )}
             </div>
           ) : (
-            <div className="text-center py-24 bg-[#0f172a] rounded-3xl border border-slate-800">
-              <h3 className="text-xl font-bold text-white mb-2">No post offices found</h3>
-              <p className="text-slate-400">Try adjusting your search query.</p>
+            <div className="text-center py-16 bg-[#0f172a] rounded-2xl border border-slate-800">
+              <h3 className="text-lg font-bold text-white mb-2">No post offices found</h3>
+              <p className="text-slate-400 text-sm">Try adjusting your search query.</p>
             </div>
           )}
         </>
