@@ -46,33 +46,19 @@ export default function StateClient() {
     
     try {
       const keyword = getSafeKeyword(stateName);
-      let allData: any[] = [];
-      let keepFetching = true;
-      let offset = 0;
-      const pageSize = 1000;
       
-      while (keepFetching) {
-        // Optimized: Removed the non-existent districtname columns to prevent crash
-        const { data, error } = await supabase
-          .from('pincodes')
-          .select('district, divisionname')
-          .or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`)
-          .range(offset, offset + pageSize - 1);
+      // Speed Optimization: Fetching single batch instead of infinite while loop
+      const { data, error } = await supabase
+        .from('pincodes')
+        .select('district, divisionname')
+        .or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`)
+        .limit(1000);
 
-        if (error) throw error;
-        
-        if (data && data.length > 0) {
-          allData = [...allData, ...data];
-          offset += pageSize;
-          if (data.length < pageSize) keepFetching = false;
-        } else {
-          keepFetching = false;
-        }
-      }
+      if (error) throw error;
       
-      if (allData.length > 0) {
+      if (data && data.length > 0) {
         const uniqueDistricts = Array.from(
-          new Set(allData.map((d: any) => d.district || d.divisionname).filter(Boolean))
+          new Set(data.map((d: any) => d.district || d.divisionname).filter(Boolean))
         );
         uniqueDistricts.sort();
         setDistrictsList(uniqueDistricts as string[]);
@@ -92,7 +78,7 @@ export default function StateClient() {
       } else {
         setSearchResults([]);
       }
-    }, 500);
+    }, 400);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
@@ -257,9 +243,7 @@ export default function StateClient() {
                              <h3 className="text-base font-bold text-white group-hover:text-orange-400 transition-colors line-clamp-1" title={item.officename}>
                                {item.officename}
                              </h3>
-                             <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 font-bold px-2 py-0.5 rounded text-xs shrink-0">
-                               {item.pincode}
-                             </span>
+                             <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 font-bold px-2 py-0.5 rounded text-xs shrink-0">{item.pincode}</span>
                           </div>
                           <span className="text-[10px] uppercase text-slate-500 font-semibold">{item.officetype || 'POST OFFICE'}</span>
                         </div>
