@@ -224,7 +224,7 @@ export default function DistrictClient() {
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              placeholder="Search within district..." 
+              placeholder="Search Post Office Name..." 
               className="w-full bg-slate-900/50 text-white border border-slate-700 rounded-xl pl-10 pr-10 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder-slate-500 text-sm"
             />
             <div onClick={startListening} className={`absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-slate-500 hover:text-orange-400'}`}>
@@ -245,72 +245,73 @@ export default function DistrictClient() {
           <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
           <p className="text-slate-400 font-medium text-sm">Fetching post offices...</p>
         </div>
-      ) : (
-        <>
-          {currentResults.length > 0 ? (
-            <div className="space-y-8">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {currentResults.map((item, index) => (
-                  <Link 
-                    key={index}
-                    href={`/pin-codes/${encodeURIComponent(decodedState)}/${encodeURIComponent(decodedDistrict)}/${item.pincode}`}
-                    className="group block h-full"
-                  >
-                    <div className="bg-[#0f172a] p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all cursor-pointer h-full shadow-md flex flex-col justify-between">
-                      <div className="mb-3">
-                        <div className="flex justify-between items-start gap-2 mb-2">
-                          <h3 className="text-base font-bold text-white group-hover:text-orange-400 transition-colors line-clamp-1" title={item.officename}>
-                            {item.officename}
-                          </h3>
-                          <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 font-bold px-2 py-0.5 rounded text-xs shrink-0">
-                            {item.pincode}
-                          </span>
-                        </div>
-                        <span className="text-[10px] uppercase text-slate-500 font-semibold">{item.officetype || 'POST OFFICE'}</span>
-                      </div>
-                      <div className="mt-auto text-xs text-slate-400">
-                        <p className="line-clamp-1">Division: <span className="text-slate-200">{item.divisionname || 'N/A'}</span></p>
-                      </div>
+      ) : currentResults.length > 0 ? (
+        <div className="space-y-8">
+          {searchQuery && (
+            <h2 className="text-xl font-bold text-white border-b border-slate-800 pb-3">
+              Post Offices matching "{searchQuery}"
+            </h2>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {currentResults.map((item, index) => (
+              <Link 
+                key={index}
+                href={`/pin-codes/${encodeURIComponent(decodedState)}/${encodeURIComponent(decodedDistrict)}/${item.pincode}`}
+                className="group block h-full"
+              >
+                <div className="bg-[#0f172a] p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all cursor-pointer h-full shadow-md flex flex-col justify-between">
+                  <div className="mb-3">
+                    <div className="flex justify-between items-start gap-2 mb-2">
+                      <h3 className="text-base font-bold text-white group-hover:text-orange-400 transition-colors line-clamp-1" title={item.officename}>
+                        {item.officename}
+                      </h3>
+                      <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 font-bold px-2 py-0.5 rounded text-xs shrink-0">
+                        {item.pincode}
+                      </span>
                     </div>
-                  </Link>
-                ))}
-              </div>
-
-              {totalPages > 1 && (
-                <div className="flex justify-center items-center gap-3 pt-6 border-t border-slate-800/50">
-                  <button 
-                    onClick={() => {
-                      setCurrentPage(p => Math.max(1, p - 1));
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    disabled={currentPage === 1}
-                    className="px-4 py-2 bg-[#0f172a] border border-slate-800 hover:bg-slate-800 disabled:opacity-50 text-white font-bold rounded-lg transition-colors text-sm"
-                  >
-                    &larr; Prev
-                  </button>
-                  <span className="text-slate-400 font-medium bg-[#0f172a] px-4 py-2 rounded-lg border border-slate-800 text-sm">
-                    <span className="text-white font-bold">{currentPage}</span> / {totalPages}
-                  </span>
-                  <button 
-                    onClick={() => {
-                      setCurrentPage(p => Math.min(totalPages, p + 1));
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    disabled={currentPage === totalPages}
-                    className="px-4 py-2 bg-[#0f172a] border border-slate-800 hover:bg-slate-800 disabled:opacity-50 text-white font-bold rounded-lg transition-colors text-sm"
-                  >
-                    Next &rarr;
-                  </button>
+                    <span className="text-[10px] uppercase text-slate-500 font-semibold">{item.officetype || 'POST OFFICE'}</span>
+                  </div>
+                  <div className="mt-auto text-xs text-slate-400">
+                    <p className="line-clamp-1">Division: <span className="text-slate-200">{item.divisionname || 'N/A'}</span></p>
+                  </div>
                 </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-16 bg-[#0f172a] rounded-2xl border border-slate-800">
-              <h3 className="text-lg font-bold text-white mb-2">No post offices found</h3>
-              <p className="text-slate-400 text-sm">Try typing just the first 4 letters of the name.</p>
+              </Link>
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-3 pt-6 border-t border-slate-800/50">
+              <button 
+                onClick={() => {
+                  setCurrentPage(p => Math.max(1, p - 1));
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                disabled={currentPage === 1}
+                className="px-4 py-2 bg-[#0f172a] border border-slate-800 hover:bg-slate-800 disabled:opacity-50 text-white font-bold rounded-lg transition-colors text-sm"
+              >
+                &larr; Prev
+              </button>
+              <span className="text-slate-400 font-medium bg-[#0f172a] px-4 py-2 rounded-lg border border-slate-800 text-sm">
+                <span className="text-white font-bold">{currentPage}</span> / {totalPages}
+              </span>
+              <button 
+                onClick={() => {
+                  setCurrentPage(p => Math.min(totalPages, p + 1));
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 bg-[#0f172a] border border-slate-800 hover:bg-slate-800 disabled:opacity-50 text-white font-bold rounded-lg transition-colors text-sm"
+              >
+                Next &rarr;
+              </button>
             </div>
           )}
-        </>
+        </div>
+      ) : (
+        <div className="text-center py-16 bg-[#0f172a] rounded-2xl border border-slate-800">
+          <h3 className="text-lg font-bold text-white mb-2">No post offices found</h3>
+          <p className="text-slate-400 text-sm">We couldn't find any post offices matching your query.</p>
+        </div>
       )}
     </div>
   );

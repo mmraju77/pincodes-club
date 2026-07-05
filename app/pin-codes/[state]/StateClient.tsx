@@ -25,8 +25,6 @@ export default function StateClient() {
   const [isLoadingDistricts, setIsLoadingDistricts] = useState(true);
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -117,42 +115,6 @@ export default function StateClient() {
     setIsLoadingDistricts(false);
   };
 
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (searchQuery.trim().length > 2) {
-        performDeepSearch(searchQuery.trim());
-      } else {
-        setSearchResults([]);
-      }
-    }, 500);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery]);
-
-  const performDeepSearch = async (query: string) => {
-    setIsSearching(true);
-    try {
-      const keyword = getSafeKeyword(decodedState);
-      const safeQuery = query.trim();
-      const dbQuery = safeQuery.replace(/\s+/g, '%');
-      
-      let q = supabase.from('pincodes').select('*').or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`).limit(100);
-
-      if (/^\d+$/.test(safeQuery)) {
-        q = q.eq('pincode', Number(safeQuery));
-      } else {
-        q = q.or(`officename.ilike.%${dbQuery}%,districtname.ilike.%${dbQuery}%,divisionname.ilike.%${dbQuery}%`);
-      }
-
-      const { data, error } = await q;
-      if (error) throw error;
-      if (data) setSearchResults(data.slice(0, 30));
-    } catch (err: any) {
-      console.error("Search error:", err);
-    }
-    setIsSearching(false);
-  };
-
   const startListening = () => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -177,9 +139,13 @@ export default function StateClient() {
     }
   };
 
-  const filteredDistricts = districtsList.filter(d => 
-    d.toLowerCase().includes(searchQuery.toLowerCase().trim())
-  );
+  // 100% Bulletproof Local Search Logic (Ignores spaces, cases, partial words)
+  const filteredDistricts = districtsList.filter(d => {
+    if (!searchQuery) return true;
+    const safeQuery = searchQuery.toLowerCase().replace(/\s+/g, '');
+    const safeDistrict = d.toLowerCase().replace(/\s+/g, '');
+    return safeDistrict.includes(safeQuery);
+  });
 
   return (
     <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 min-h-screen space-y-10">
@@ -215,7 +181,7 @@ export default function StateClient() {
               type="text" 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search Village, Town or PIN..." 
+              placeholder="Search District Name..." 
               className="w-full bg-slate-900/50 text-white border border-slate-700 rounded-xl pl-10 pr-10 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder-slate-500 text-sm"
             />
             <div onClick={startListening} className={`absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-slate-500 hover:text-orange-400'}`}>
@@ -225,84 +191,40 @@ export default function StateClient() {
         </div>
       </div>
 
-      {searchQuery.trim().length > 2 ? (
+      {isLoadingDistricts ? (
+        <div className="py-16 text-center">
+          <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-slate-400 font-medium text-sm">Fetching districts...</p>
+        </div>
+      ) : filteredDistricts.length > 0 ? (
         <div className="space-y-6">
-          <h2 className="text-xl font-bold text-white border-b border-slate-800 pb-3">
-            Villages/Post Offices matching "{searchQuery}"
-          </h2>
-          {isSearching ? (
-             <div className="py-12 text-center">
-               <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-               <p className="text-slate-400 text-sm mt-4">Searching in {decodedState}...</p>
-             </div>
-          ) : searchResults.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {searchResults.map((item, index) => {
-                const dName = item.districtname || item.Districtname || item.district || item.divisionname || 'Unknown';
-                return (
-                  <Link 
-                    key={index}
-                    href={`/pin-codes/${encodeURIComponent(decodedState)}/${encodeURIComponent(dName)}/${item.pincode}`}
-                    className="group block h-full"
-                  >
-                    <div className="bg-[#0f172a] p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all cursor-pointer h-full shadow-md flex flex-col justify-between">
-                      <div className="mb-3">
-                        <div className="flex justify-between items-start gap-2 mb-2">
-                           <h3 className="text-base font-bold text-white group-hover:text-orange-400 transition-colors line-clamp-1" title={item.officename}>
-                             {item.officename}
-                           </h3>
-                           <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 font-bold px-2 py-0.5 rounded text-xs shrink-0">
-                             {item.pincode}
-                           </span>
-                        </div>
-                        <span className="text-[10px] uppercase text-slate-500 font-semibold">{item.officetype || 'POST OFFICE'}</span>
-                      </div>
-                      <div className="mt-auto text-xs text-slate-400 space-y-1">
-                        <p className="line-clamp-1">District: <span className="text-slate-200">{dName}</span></p>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-12 bg-[#0f172a] rounded-2xl border border-slate-800">
-              <h3 className="text-lg font-bold text-white mb-2">No post offices found</h3>
-              <p className="text-slate-400 text-sm">Try typing just the first 4 letters (e.g., "addu" or "viza").</p>
-            </div>
+          {searchQuery && (
+            <h2 className="text-xl font-bold text-white border-b border-slate-800 pb-3">
+              Districts matching "{searchQuery}"
+            </h2>
           )}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {filteredDistricts.map((districtName, index) => (
+              <Link key={index} href={`/pin-codes/${encodeURIComponent(decodedState)}/${encodeURIComponent(districtName)}`} className="group block">
+                <div className="bg-[#0f172a] border border-slate-800 p-4 rounded-xl flex items-center gap-3 hover:bg-slate-800 hover:border-orange-500/30 cursor-pointer transition-all shadow-sm">
+                  <div className="text-slate-500 group-hover:text-orange-400 transition-colors shrink-0">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m3-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold text-sm leading-tight group-hover:text-orange-50 transition-colors line-clamp-2">
+                      {districtName}
+                    </h3>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
       ) : (
-        <>
-          {isLoadingDistricts ? (
-            <div className="py-16 text-center">
-              <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-              <p className="text-slate-400 font-medium text-sm">Fetching districts...</p>
-            </div>
-          ) : filteredDistricts.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-              {filteredDistricts.map((districtName, index) => (
-                <Link key={index} href={`/pin-codes/${encodeURIComponent(decodedState)}/${encodeURIComponent(districtName)}`} className="group block">
-                  <div className="bg-[#0f172a] border border-slate-800 p-4 rounded-xl flex items-center gap-3 hover:bg-slate-800 hover:border-orange-500/30 cursor-pointer transition-all shadow-sm">
-                    <div className="text-slate-500 group-hover:text-orange-400 transition-colors shrink-0">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m3-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                    </div>
-                    <div>
-                      <h3 className="text-white font-semibold text-sm leading-tight group-hover:text-orange-50 transition-colors line-clamp-2">
-                        {districtName}
-                      </h3>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-16 bg-[#0f172a] rounded-2xl border border-slate-800">
-              <h3 className="text-lg font-bold text-white mb-2">No districts found</h3>
-              <p className="text-slate-400 text-sm">We couldn't find any districts matching your query.</p>
-            </div>
-          )}
-        </>
+        <div className="text-center py-16 bg-[#0f172a] rounded-2xl border border-slate-800">
+          <h3 className="text-lg font-bold text-white mb-2">No districts found</h3>
+          <p className="text-slate-400 text-sm">We couldn't find any districts matching your query.</p>
+        </div>
       )}
     </div>
   );
