@@ -23,7 +23,6 @@ export default function PincodesHubPage() {
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
-      // FIX: Only search database if user types more than 2 letters (e.g. "and")
       if (searchQuery.trim().length > 2) {
         performSearch(searchQuery.trim());
       } else {
@@ -45,11 +44,16 @@ export default function PincodesHubPage() {
       if (/^\d+$/.test(safeQuery)) {
         q = q.eq('pincode', Number(safeQuery));
       } else {
-        q = q.or(`officename.ilike.%${dbQuery}%,districtname.ilike.%${dbQuery}%,statename.ilike.%${dbQuery}%,divisionname.ilike.%${dbQuery}%`);
+        // బగ్ ఫిక్స్: డేటాబేస్ క్రాష్ అవ్వకుండా కేవలం 100% పక్కాగా ఉన్న కాలమ్స్ లోనే వెతుకుతుంది
+        q = q.or(`officename.ilike.%${dbQuery}%,divisionname.ilike.%${dbQuery}%,statename.ilike.%${dbQuery}%,circlename.ilike.%${dbQuery}%`);
       }
 
       const { data, error } = await q;
-      if (error) throw error;
+      
+      if (error) {
+        console.error("Database Search Error:", error.message);
+        throw error;
+      }
       
       if (data) {
         const sortedData = data.sort((a, b) => {
@@ -66,7 +70,7 @@ export default function PincodesHubPage() {
         setSearchResults(sortedData);
       }
     } catch (err) {
-      console.error("Search error:", err);
+      console.error("Search failed:", err);
     }
     setIsSearching(false);
   };
@@ -95,7 +99,6 @@ export default function PincodesHubPage() {
     }
   };
 
-  // Only filter states if user has typed something
   const filteredStates = searchQuery.trim() !== '' 
     ? INDIAN_STATES.filter(s => s.toLowerCase().replace(/\s+/g, '').includes(searchQuery.toLowerCase().replace(/\s+/g, '')))
     : INDIAN_STATES;
@@ -141,7 +144,6 @@ export default function PincodesHubPage() {
       {searchQuery.trim().length > 0 ? (
         <div className="space-y-10">
           
-          {/* States Results */}
           {filteredStates.length > 0 && (
             <div>
               <h2 className="text-xl font-bold text-white border-b border-slate-800 pb-3 mb-4">
@@ -166,7 +168,6 @@ export default function PincodesHubPage() {
             </div>
           )}
 
-          {/* Post Offices Results - Only show if > 2 characters */}
           {searchQuery.trim().length > 2 && (
             <div>
               <h2 className="text-xl font-bold text-white border-b border-slate-800 pb-3 mb-4">

@@ -134,20 +134,22 @@ export default function StateClient() {
     try {
       const keyword = getSafeKeyword(decodedState);
       const safeQuery = query.trim();
+      const dbQuery = safeQuery.replace(/\s+/g, '%');
       
-      // FIX: Deep Search modified to fetch exact village names independently of the loaded district list.
-      let q = supabase.from('pincodes').select('*')
-        .or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`)
-        .limit(100);
+      let q = supabase.from('pincodes').select('*').or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`).limit(100);
 
       if (/^\d+$/.test(safeQuery)) {
         q = q.eq('pincode', Number(safeQuery));
       } else {
-        q = q.or(`officename.ilike.%${safeQuery}%,districtname.ilike.%${safeQuery}%,divisionname.ilike.%${safeQuery}%`);
+        // బగ్ ఫిక్స్: డేటాబేస్ క్రాష్ అవ్వకుండా కేవలం 100% పక్కాగా ఉన్న కాలమ్స్ లోనే వెతుకుతుంది
+        q = q.or(`officename.ilike.%${dbQuery}%,divisionname.ilike.%${dbQuery}%`);
       }
 
       const { data, error } = await q;
-      if (error) throw error;
+      if (error) {
+         console.error("Database Search Error:", error.message);
+         throw error;
+      }
       
       if (data) {
           const sortedData = data.sort((a, b) => {
@@ -214,7 +216,7 @@ export default function StateClient() {
           <h1 className="text-3xl md:text-4xl font-black text-white mb-2 tracking-tight">
             Districts in {decodedState.toUpperCase()}
           </h1>
-          <p className="text-slate-400 text-sm md:text-base">Browse by state, district, and village, or search any post office details.</p>
+          <p className="text-slate-400 text-sm md:text-base">Select a district or search for any village/post office.</p>
           {errorMessage && (
             <p className="text-red-400 mt-3 bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20 inline-block text-sm">
               Error: {errorMessage}
@@ -249,7 +251,6 @@ export default function StateClient() {
       ) : searchQuery.trim().length > 2 ? (
         <div className="space-y-10">
           
-          {/* Show matching districts if any */}
           {filteredDistricts.length > 0 && (
             <div>
               <h2 className="text-xl font-bold text-white border-b border-slate-800 pb-3 mb-4">
@@ -274,7 +275,6 @@ export default function StateClient() {
             </div>
           )}
 
-          {/* Show matching Post Offices from DB */}
           <div>
             <h2 className="text-xl font-bold text-white border-b border-slate-800 pb-3 mb-4">
               Villages & Post Offices matching "{searchQuery}"
