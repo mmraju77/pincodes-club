@@ -77,10 +77,10 @@ export default function DistrictClient() {
       const pageSize = 1000;
 
       while (keepFetching) {
-        // Optimized to fetch exactly what is needed for rendering
+        // Optimized: Removed the non-existent districtname columns to prevent crash
         const { data, error } = await supabase
           .from('pincodes')
-          .select('pincode, officename, officetype, district, districtname, Districtname, divisionname')
+          .select('pincode, officename, officetype, district, divisionname')
           .or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`)
           .range(offset, offset + pageSize - 1);
         
@@ -99,20 +99,15 @@ export default function DistrictClient() {
       }
 
       if (allData.length > 0) {
-        const normalizedTargetState = decodedState.toLowerCase().replace(/[^a-z]/g, '');
         const normalizedTargetDistrict = districtName.toLowerCase().replace(/[^a-z]/g, '');
         
         const finalData = allData.filter((row: any) => {
-          const dNameRaw = row.district || row.districtname || row.Districtname || row.divisionname || '';
+          const dNameRaw = row.district || row.divisionname || '';
           const dName = dNameRaw.toLowerCase().replace(/[^a-z]/g, '');
           
-          const isDistrictMatch = dName === normalizedTargetDistrict || dName.includes(normalizedTargetDistrict) || normalizedTargetDistrict.includes(dName);
-          if (!isDistrictMatch) return false;
-          
-          return true;
+          return dName === normalizedTargetDistrict || dName.includes(normalizedTargetDistrict) || normalizedTargetDistrict.includes(dName);
         });
 
-        // Ensure unique records and sort alphabetically
         const uniqueData = finalData.filter((v, i, a) => a.findIndex(t => (t.pincode === v.pincode && t.officename === v.officename)) === i);
         uniqueData.sort((a, b) => (a.officename || '').localeCompare(b.officename || ''));
         
@@ -142,10 +137,8 @@ export default function DistrictClient() {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
-      
       recognition.continuous = false;
       recognition.lang = 'en-IN'; 
-
       recognition.onstart = () => setIsListening(true);
       recognition.onresult = (event: any) => {
         let transcript = event.results[0][0].transcript;
@@ -167,7 +160,6 @@ export default function DistrictClient() {
 
   return (
     <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 min-h-screen space-y-8">
-      
       <div className="bg-[#0f172a] p-6 md:p-8 rounded-2xl border border-slate-800 shadow-xl flex flex-col lg:flex-row justify-between items-center gap-6">
         <div className="flex-1 text-center lg:text-left">
           <div className="flex items-center gap-2 flex-wrap justify-center lg:justify-start mb-3">

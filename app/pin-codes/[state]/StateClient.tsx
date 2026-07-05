@@ -52,10 +52,10 @@ export default function StateClient() {
       const pageSize = 1000;
       
       while (keepFetching) {
-        // Optimized DB call to only fetch what's needed for district list
+        // Optimized: Removed the non-existent districtname columns to prevent crash
         const { data, error } = await supabase
           .from('pincodes')
-          .select('district, districtname, Districtname, divisionname')
+          .select('district, divisionname')
           .or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`)
           .range(offset, offset + pageSize - 1);
 
@@ -72,7 +72,7 @@ export default function StateClient() {
       
       if (allData.length > 0) {
         const uniqueDistricts = Array.from(
-          new Set(allData.map((d: any) => d.district || d.districtname || d.Districtname || d.divisionname).filter(Boolean))
+          new Set(allData.map((d: any) => d.district || d.divisionname).filter(Boolean))
         );
         uniqueDistricts.sort();
         setDistrictsList(uniqueDistricts as string[]);
@@ -92,7 +92,7 @@ export default function StateClient() {
       } else {
         setSearchResults([]);
       }
-    }, 500); // 500ms debounce for lightning fast perceived performance
+    }, 500);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
@@ -104,7 +104,6 @@ export default function StateClient() {
       const safeQuery = query.trim();
       const dbQuery = safeQuery.replace(/\s+/g, '%');
       
-      // Limit to 16 for ultra-fast loading
       let q = supabase.from('pincodes').select('pincode, officename, officetype, district, statename, circlename, divisionname').or(`circlename.ilike.%${keyword}%,statename.ilike.%${keyword}%`).limit(16);
 
       if (/^\d+$/.test(safeQuery)) {
@@ -214,7 +213,6 @@ export default function StateClient() {
         </div>
       ) : searchQuery.trim().length > 2 ? (
         <div className="space-y-10">
-          
           {filteredDistricts.length > 0 && (
             <div>
               <h2 className="text-xl font-bold text-white border-b border-slate-800 pb-3 mb-4">
@@ -250,13 +248,9 @@ export default function StateClient() {
             ) : searchResults.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {searchResults.map((item, index) => {
-                  const dName = item.district || item.districtname || item.Districtname || item.divisionname || 'Unknown';
+                  const dName = item.district || item.divisionname || 'Unknown';
                   return (
-                    <Link 
-                      key={index}
-                      href={`/pin-codes/${encodeURIComponent(decodedState)}/${encodeURIComponent(dName)}/${item.pincode}`}
-                      className="group block h-full"
-                    >
+                    <Link key={index} href={`/pin-codes/${encodeURIComponent(decodedState)}/${encodeURIComponent(dName)}/${item.pincode}`} className="group block h-full">
                       <div className="bg-[#0f172a] p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all cursor-pointer h-full shadow-md flex flex-col justify-between">
                         <div className="mb-3">
                           <div className="flex justify-between items-start gap-2 mb-2">
@@ -283,7 +277,6 @@ export default function StateClient() {
               </div>
             )}
           </div>
-          
         </div>
       ) : filteredDistricts.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
