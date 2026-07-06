@@ -36,18 +36,19 @@ export default function IfscDirectoryPage() {
   
   const [districtSummary, setDistrictSummary] = useState<any[]>([]);
   const [resultsData, setResultsData] = useState<any[]>([]);
-  const [totalResults, setTotalResults] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 50;
+  
+  // Speed Optimization: Reduced initial results limit to boost rendering speed
+  const ITEMS_PER_PAGE = 20;
 
   useEffect(() => {
+    // Speed Optimization: 400ms debounce
     const timer = setTimeout(() => {
       setSearchQuery(inputValue);
-    }, 200); 
+    }, 400); 
     return () => clearTimeout(timer);
   }, [inputValue]);
 
-  // Fetch unique districts safely with strictly lowercase columns
+  // Fetch Districts Fast
   useEffect(() => {
     if (selectedBank && selectedState && !selectedDistrict && !searchQuery) {
       const fetchDistricts = async () => {
@@ -56,9 +57,9 @@ export default function IfscDirectoryPage() {
         
         const { data, error } = await supabase.from('ifsc_codes')
           .select('district')
-          .ilike('bank', `%${selectedBank}%`)
-          .ilike('state', `%${selectedState}%`)
-          .limit(5000); 
+          .eq('bank', selectedBank)
+          .eq('state', selectedState)
+          .limit(1000); 
         
         if (error) {
           setDbError(`Database Error: ${error.message}`);
@@ -75,31 +76,28 @@ export default function IfscDirectoryPage() {
     }
   }, [selectedBank, selectedState, selectedDistrict, searchQuery]);
 
-  // Fetch Main Results
+  // Fetch Main Results - Ultra Fast Search Logic
   useEffect(() => {
     const fetchMainData = async () => {
       if (!searchQuery && !selectedDistrict) {
         setResultsData([]);
-        setTotalResults(0);
         return;
       }
       setIsLoading(true);
       setDbError(null);
 
-      const start = (currentPage - 1) * ITEMS_PER_PAGE;
-      const end = start + ITEMS_PER_PAGE - 1;
+      // We only fetch columns needed for the UI, limited to 20 for instant speed
+      let q = supabase.from('ifsc_codes').select('bank, ifsc, branch, district, state, centre, address, micr, contact').limit(ITEMS_PER_PAGE);
 
-      let q = supabase.from('ifsc_codes').select('*', { count: 'exact' });
-
-      if (selectedBank && !searchQuery) q = q.ilike('bank', `%${selectedBank}%`);
-      if (selectedState && !searchQuery) q = q.ilike('state', `%${selectedState}%`);
-      if (selectedDistrict && !searchQuery) q = q.ilike('district', `%${selectedDistrict}%`);
+      if (selectedBank && !searchQuery) q = q.eq('bank', selectedBank);
+      if (selectedState && !searchQuery) q = q.eq('state', selectedState);
+      if (selectedDistrict && !searchQuery) q = q.eq('district', selectedDistrict);
 
       let qText = searchQuery.trim().toLowerCase();
 
+      // Quick dictionary for common acronyms
       const exactBanks: Record<string, string> = {
         'sbi': 'STATE BANK OF INDIA',
-        'state bank of india': 'STATE BANK OF INDIA',
         'hdfc': 'HDFC BANK',
         'icici': 'ICICI BANK',
         'pnb': 'PUNJAB NATIONAL BANK',
@@ -109,59 +107,72 @@ export default function IfscDirectoryPage() {
         'iob': 'INDIAN OVERSEAS BANK',
         'bom': 'BANK OF MAHARASHTRA',
         'ubi': 'UNION BANK OF INDIA',
-        'axis': 'AXIS BANK',
-        'canara': 'CANARA BANK',
-        'kotak': 'KOTAK MAHINDRA BANK',
-        'yes': 'YES BANK',
-        'idfc': 'IDFC FIRST BANK',
-        'indusind': 'INDUSIND BANK',
-        'bandhan': 'BANDHAN BANK',
-        'federal': 'FEDERAL BANK',
-        'uco': 'UCO BANK',
-        'idbi': 'IDBI BANK',
-        'indian bank': 'INDIAN BANK',
-        'south indian': 'SOUTH INDIAN BANK'
       };
 
-      const bankKeys = Object.keys(exactBanks).sort((a, b) => b.length - a.length);
       let recognizedBank = '';
-
-      for (const key of bankKeys) {
+      
+      // Check for exact acronym match first
+      for (const [key, fullName] of Object.entries(exactBanks)) {
         const regex = new RegExp(`\\b${key}\\b`, 'i');
         if (regex.test(qText)) {
-          recognizedBank = exactBanks[key];
+          recognizedBank = fullName;
           qText = qText.replace(regex, '').replace(/\s+/g, ' ').trim();
           break;
         }
       }
 
       if (recognizedBank) {
-        q = q.ilike('bank', `%${recognizedBank}%`);
+        q = q.eq('bank', recognizedBank);
       }
 
       if (qText) {
-        const words = qText.split(/\s+/).filter(w => w.length > 0);
-        words.forEach(word => {
-           q = q.or(`ifsc.ilike.%${word}%,branch.ilike.%${word}%,centre.ilike.%${word}%,district.ilike.%${word}%,address.ilike.%${word}%`);
-        });
+         // Direct precise match search across key columns
+         const dbQuery = qText.replace(/\s+/g, '%');
+         q = q.or(`ifsc.ilike.%${dbQuery}%,branch.ilike.%${dbQuery}%,city.ilike.%${dbQuery}%,district.ilike.%${dbQuery}%,bank.ilike.%${dbQuery}%`);
       }
 
-      const { data, count, error } = await q.range(start, end);
+      const { data, error } = await q;
       
       if (error) {
         setDbError(`Database Error: ${error.message}`);
         setResultsData([]);
-        setTotalResults(0);
       } else if (data) { 
-        setResultsData(data); 
-        setTotalResults(count || 0); 
+        // Strict Priority Sorting: Exact Branch/City/IFSC matches float to top
+        const sortedData = data.sort((a, b) => {
+           const aBranch = (a.branch || '').toLowerCase();
+           const bBranch = (b.branch || '').toLowerCase();
+           const aCity = (a.centre || '').toLowerCase();
+           const bCity = (b.centre || '').toLowerCase();
+           const aIfsc = (a.ifsc || '').toLowerCase();
+           const bIfsc = (b.ifsc || '').toLowerCase();
+           const sq = qText.toLowerCase();
+
+           if (aIfsc === sq) return -1;
+           if (bIfsc === sq) return 1;
+           
+           if (aBranch === sq || aCity === sq) return -1;
+           if (bBranch === sq || bCity === sq) return 1;
+
+           if (aBranch.startsWith(sq)) return -1;
+           if (bBranch.startsWith(sq)) return 1;
+
+           return 0;
+        });
+
+        // Remove duplicates based on IFSC
+        const uniqueResults = sortedData.filter((v, i, a) => a.findIndex(t => (t.ifsc === v.ifsc)) === i);
+        setResultsData(uniqueResults); 
       }
       setIsLoading(false);
     };
-    fetchMainData();
-  }, [searchQuery, selectedBank, selectedState, selectedDistrict, currentPage]);
-
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, selectedBank, selectedState, selectedDistrict]);
+    
+    // Only search if user typed > 2 characters or selected a district
+    if (searchQuery.trim().length > 2 || selectedDistrict) {
+       fetchMainData();
+    } else {
+       setResultsData([]);
+    }
+  }, [searchQuery, selectedBank, selectedState, selectedDistrict]);
 
   const handleVoiceSearch = () => {
     if (typeof window !== 'undefined') {
@@ -184,9 +195,7 @@ export default function IfscDirectoryPage() {
   const showBankList = !searchQuery && !selectedBank;
   const showStateList = !searchQuery && selectedBank && !selectedState;
   const showDistrictList = !searchQuery && selectedBank && selectedState && !selectedDistrict;
-  const showResultsList = searchQuery || (selectedBank && selectedState && selectedDistrict);
-  
-  const totalPages = Math.ceil(totalResults / ITEMS_PER_PAGE);
+  const showResultsList = (searchQuery.trim().length > 2) || (selectedBank && selectedState && selectedDistrict);
 
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 space-y-8 flex flex-col min-h-screen">
@@ -239,7 +248,7 @@ export default function IfscDirectoryPage() {
           )}
         </div>
 
-        {isLoading && !showStateList ? (
+        {isLoading && !showStateList && !showBankList && !showDistrictList ? (
           <div className="py-24 text-center">
             <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-slate-400 animate-pulse text-lg">Fetching live banking data...</p>
@@ -350,7 +359,7 @@ export default function IfscDirectoryPage() {
       </div>
 
       <div className="mt-auto pt-12 pb-4 text-center border-t border-slate-800/50">
-        <p className="text-slate-500 text-xs font-medium">© 2026 Pincode Club. All rights reserved. Global Operations. | <span className="text-emerald-400 font-bold">App Version: 4.0 (Ultimate)</span></p>
+        <p className="text-slate-500 text-xs font-medium">© 2026 Pincode Club. All rights reserved. Global Operations. | <span className="text-blue-400 font-bold">App Version: 4.1 (Speed Optimized)</span></p>
       </div>
     </div>
   );
