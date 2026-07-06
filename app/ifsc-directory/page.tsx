@@ -22,6 +22,32 @@ const POPULAR_BANKS = [
   "FEDERAL BANK", "SOUTH INDIAN BANK", "KARNATAKA BANK", "KARUR VYSYA BANK"
 ];
 
+// Helper function to fix weird contact numbers like "2.536772E7" or "2536772.0"
+const formatContactNumber = (contact: any) => {
+  if (!contact || contact === 'Not Available' || contact === 'NULL') return 'Not Available';
+  
+  let strContact = String(contact).trim();
+  
+  // Remove .0 at the end if exists
+  if (strContact.endsWith('.0')) {
+    strContact = strContact.slice(0, -2);
+  }
+  
+  // Handle Scientific Notation like 2.536772E7
+  if (strContact.toUpperCase().includes('E')) {
+    try {
+      strContact = Number(strContact).toString();
+    } catch (e) {
+      // If parsing fails, keep original
+    }
+  }
+
+  // If the number became "NaN" or empty, return Not Available
+  if (strContact === 'NaN' || strContact === '') return 'Not Available';
+
+  return strContact;
+};
+
 export default function IfscDirectoryPage() {
   const [inputValue, setInputValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,7 +74,7 @@ export default function IfscDirectoryPage() {
     return () => clearTimeout(timer);
   }, [inputValue]);
 
-  // Fetch Districts Super Fast (No slow loops)
+  // Fetch Districts Super Fast
   useEffect(() => {
     if (selectedBank && selectedState && !selectedDistrict && !searchQuery) {
       const fetchDistricts = async () => {
@@ -90,7 +116,7 @@ export default function IfscDirectoryPage() {
       setIsLoading(true);
       setDbError(null);
 
-      let q = supabase.from('ifsc_codes').select('bank, ifsc, branch, district, state, centre, address, micr, contact').limit(ITEMS_PER_PAGE);
+      let q = supabase.from('ifsc_codes').select('bank, ifsc, branch, district, state, centre, address, micr, contact, phone').limit(ITEMS_PER_PAGE);
 
       if (selectedBank && !searchQuery) q = q.ilike('bank', selectedBank);
       if (selectedState && !searchQuery) q = q.ilike('state', selectedState);
@@ -183,7 +209,6 @@ export default function IfscDirectoryPage() {
   const showDistrictList = !searchQuery && selectedBank && selectedState && !selectedDistrict;
   const showResultsList = (searchQuery.trim().length > 2) || (selectedBank && selectedState && selectedDistrict);
 
-  // Unconditional clean state reset for precise back button operations
   const goBackToBanks = () => {
     setSelectedBank(null);
     setSelectedState(null);
@@ -229,7 +254,7 @@ export default function IfscDirectoryPage() {
                 placeholder="Search IFSC, Bank Name, Branch, City..." 
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)} 
-                className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl py-3 l-10 pr-12 focus:outline-none focus:border-blue-500 transition-colors shadow-inner font-medium"
+                className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl py-3 pl-10 pr-12 focus:outline-none focus:border-blue-500 transition-colors shadow-inner font-medium"
               />
               <button onClick={handleVoiceSearch} className={`absolute right-2 p-2 rounded-lg transition-all ${isListening ? 'bg-blue-500 animate-pulse text-white' : 'text-slate-400 hover:text-blue-400 hover:bg-slate-800'}`} title="Voice Search">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7-7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
@@ -239,24 +264,32 @@ export default function IfscDirectoryPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {selectedBank && !selectedState && (
+          {showStateList && (
             <button onClick={goBackToBanks} className="flex items-center gap-2 text-blue-400 hover:text-white transition-colors bg-blue-500/10 px-4 py-2 rounded-lg border border-blue-500/20 text-sm font-medium">
               ← Back to All Banks
             </button>
           )}
-          {selectedState && !selectedDistrict && (
+          
+          {showDistrictList && (
             <button onClick={goBackToStates} className="flex items-center gap-2 text-blue-400 hover:text-white transition-colors bg-blue-500/10 px-4 py-2 rounded-lg border border-blue-500/20 text-sm font-medium">
-              ← Back to States
+              ← Back to States in <span className="capitalize">{selectedBank?.toLowerCase()}</span>
             </button>
           )}
-          {selectedDistrict && !searchQuery && (
+          
+          {showResultsList && !searchQuery && (
             <button onClick={goBackToDistricts} className="flex items-center gap-2 text-blue-400 hover:text-white transition-colors bg-blue-500/10 px-4 py-2 rounded-lg border border-blue-500/20 text-sm font-medium">
-              ← Back to Districts
+              ← Back to Districts in <span className="capitalize">{selectedState?.toLowerCase()}</span>
+            </button>
+          )}
+
+          {searchQuery && (
+            <button onClick={() => { setSearchQuery(''); setInputValue(''); }} className="flex items-center gap-2 text-red-400 hover:text-white transition-colors bg-red-500/10 px-4 py-2 rounded-lg border border-red-500/20 text-sm font-medium">
+              ✕ Clear Search
             </button>
           )}
         </div>
 
-        {isLoading ? (
+        {isLoading && !showStateList && !showBankList && !showDistrictList ? (
           <div className="py-24 text-center">
             <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-slate-400 animate-pulse text-lg">Fetching live banking data...</p>
@@ -326,7 +359,10 @@ export default function IfscDirectoryPage() {
                     const city = row.centre || row.city || 'N/A';
                     const address = row.address || 'N/A';
                     const micrCode = row.micr || 'Not Available';
-                    const contact = row.contact || row.phone || 'Not Available'; 
+                    
+                    // Applied the helper function to clean contact info
+                    const rawContact = row.contact || row.phone;
+                    const contact = formatContactNumber(rawContact);
 
                     return (
                       <div key={index} className="bg-slate-900/80 p-6 rounded-2xl border border-slate-700 hover:border-blue-500/50 transition-all flex flex-col relative shadow-xl group hover:scale-[1.01]">
@@ -367,7 +403,7 @@ export default function IfscDirectoryPage() {
       </div>
 
       <div className="mt-auto pt-12 pb-4 text-center border-t border-slate-800/50">
-        <p className="text-slate-500 text-xs font-medium">© 2026 Pincode Club. | <span className="text-blue-400 font-bold">App Version: 5.1 (Fixed Navigation)</span></p>
+        <p className="text-slate-500 text-xs font-medium">© 2026 Pincode Club. | <span className="text-blue-400 font-bold">App Version: 5.2 (Contact Fix)</span></p>
       </div>
     </div>
   );
