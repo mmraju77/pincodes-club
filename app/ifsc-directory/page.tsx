@@ -22,27 +22,21 @@ const POPULAR_BANKS = [
   "FEDERAL BANK", "SOUTH INDIAN BANK", "KARNATAKA BANK", "KARUR VYSYA BANK"
 ];
 
-// Helper function to fix weird contact numbers like "2.536772E7" or "2536772.0"
+// Helper function to thoroughly clean contact numbers
 const formatContactNumber = (contact: any) => {
   if (!contact || contact === 'Not Available' || contact === 'NULL') return 'Not Available';
   
   let strContact = String(contact).trim();
   
-  // Remove .0 at the end if exists
+  // If it contains "E", it's corrupted Excel data. It's better to say Not Available than show garbage.
+  if (strContact.toUpperCase().includes('E')) {
+      return 'Not Available';
+  }
+
   if (strContact.endsWith('.0')) {
     strContact = strContact.slice(0, -2);
   }
-  
-  // Handle Scientific Notation like 2.536772E7
-  if (strContact.toUpperCase().includes('E')) {
-    try {
-      strContact = Number(strContact).toString();
-    } catch (e) {
-      // If parsing fails, keep original
-    }
-  }
 
-  // If the number became "NaN" or empty, return Not Available
   if (strContact === 'NaN' || strContact === '') return 'Not Available';
 
   return strContact;
@@ -74,7 +68,7 @@ export default function IfscDirectoryPage() {
     return () => clearTimeout(timer);
   }, [inputValue]);
 
-  // Fetch Districts Super Fast
+  // UI FIX: Fetching Districts with a STRICT approach
   useEffect(() => {
     if (selectedBank && selectedState && !selectedDistrict && !searchQuery) {
       const fetchDistricts = async () => {
@@ -82,17 +76,27 @@ export default function IfscDirectoryPage() {
         setDbError(null);
         
         try {
+          // Fetch raw districts
           const { data, error } = await supabase.from('ifsc_codes')
             .select('district')
             .ilike('bank', selectedBank)
             .ilike('state', selectedState)
-            .limit(2000);
+            .limit(3000); // Increased limit to ensure we get all unique districts
           
           if (error) throw error;
           
           if (data && data.length > 0) {
-            const uniqueDists = Array.from(new Set(data.map((r: any) => r.district))).filter(Boolean).sort();
-            setDistrictSummary(uniqueDists.map(d => ({ name: d as string })));
+            // Filter out garbage: Remove anything that looks like an address or is too long to be a district
+            const uniqueDists = Array.from(new Set(data.map((r: any) => r.district)))
+              .filter(Boolean)
+              .filter(d => typeof d === 'string' && d.length < 30) // A district name is rarely > 30 chars
+              .map(d => String(d).toUpperCase())
+              .sort();
+
+            // Additional strict check: If it contains 'CAMPUS' or numbers, it's likely not a district
+            const cleanDists = uniqueDists.filter(d => !d.includes('CAMPUS') && !/\d/.test(d));
+
+            setDistrictSummary(cleanDists.map(d => ({ name: d })));
           } else {
             setDistrictSummary([]);
           }
@@ -360,7 +364,7 @@ export default function IfscDirectoryPage() {
                     const address = row.address || 'N/A';
                     const micrCode = row.micr || 'Not Available';
                     
-                    // Applied the helper function to clean contact info
+                    // Fixed contact logic applied
                     const rawContact = row.contact || row.phone;
                     const contact = formatContactNumber(rawContact);
 
@@ -403,7 +407,7 @@ export default function IfscDirectoryPage() {
       </div>
 
       <div className="mt-auto pt-12 pb-4 text-center border-t border-slate-800/50">
-        <p className="text-slate-500 text-xs font-medium">© 2026 Pincode Club. | <span className="text-blue-400 font-bold">App Version: 5.2 (Contact Fix)</span></p>
+        <p className="text-slate-500 text-xs font-medium">© 2026 Pincode Club. | <span className="text-blue-400 font-bold">App Version: 6.0 (District Clean & Contact Fix)</span></p>
       </div>
     </div>
   );
