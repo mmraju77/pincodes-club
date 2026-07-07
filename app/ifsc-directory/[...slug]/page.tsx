@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react'; // <-- FIX: 'use' hook is imported here
 import { supabase } from '../../../lib/supabase';
 
 const formatFromSlug = (slug: string) => {
@@ -23,7 +23,11 @@ const formatContactNumber = (contact: any) => {
   return strContact;
 };
 
-export default function DynamicIfscPage({ params }: { params: { slug?: string[] } }) {
+// FIX: We now tell Next.js that params is a Promise to stop the Vercel build error
+export default function DynamicIfscPage(props: { params: Promise<{ slug?: string[] }> }) {
+  
+  // FIX: Unwrap the Promise correctly using React's new 'use' hook
+  const params = use(props.params);
   const slug = params?.slug || [];
   
   // Strict 5-Level URL Segment Mapping
@@ -76,7 +80,6 @@ export default function DynamicIfscPage({ params }: { params: { slug?: string[] 
   let branchDataToShow: any[] = [];
 
   if (dataList.length > 0) {
-    // Level 1: Only Bank Selected -> Show States
     if (bankSlug && !stateSlug) {
       const uniqueStates = Array.from(new Set(dataList.map(d => d.state))).filter(Boolean) as string[];
       displayCards = uniqueStates.sort().map(s => ({
@@ -84,7 +87,6 @@ export default function DynamicIfscPage({ params }: { params: { slug?: string[] 
         url: `/ifsc-directory/${bankSlug}/${formatToSlug(s)}`
       }));
     } 
-    // Level 2: Bank + State Selected -> Show Districts Strictly
     else if (bankSlug && stateSlug && !districtSlug) {
       const uniqueDistricts = Array.from(new Set(dataList.map(d => d.district))).filter(Boolean) as string[];
       displayCards = uniqueDistricts.sort().map(d => ({
@@ -92,7 +94,6 @@ export default function DynamicIfscPage({ params }: { params: { slug?: string[] 
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${formatToSlug(d)}`
       }));
     }
-    // Level 3: Bank + State + District Selected -> Show Cities/Centres Strictly
     else if (bankSlug && stateSlug && districtSlug && !citySlug) {
       const uniqueCities = Array.from(new Set(dataList.map(d => d.centre || d.city))).filter(Boolean) as string[];
       displayCards = uniqueCities.sort().map(c => ({
@@ -100,8 +101,14 @@ export default function DynamicIfscPage({ params }: { params: { slug?: string[] 
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}/${formatToSlug(c)}`
       }));
     }
-    // Level 4: Bank + State + District + City Selected -> Show Branches Data Directly
-    else if (bankSlug && stateSlug && districtSlug && citySlug) {
+    else if (bankSlug && stateSlug && districtSlug && citySlug && !branchSlug) {
+      const uniqueBranches = Array.from(new Set(dataList.map(d => d.branch))).filter(Boolean) as string[];
+      displayCards = uniqueBranches.sort().map(b => ({
+        name: b,
+        url: `/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}/${citySlug}/${formatToSlug(b)}`
+      }));
+    }
+    else if (bankSlug && stateSlug && districtSlug && citySlug && branchSlug) {
       isFinalBranchView = true;
       branchDataToShow = dataList;
     }
@@ -134,7 +141,13 @@ export default function DynamicIfscPage({ params }: { params: { slug?: string[] 
         {citySlug && (
           <>
             <span className="text-slate-600">➔</span>
-            <span className="text-slate-200 capitalize" translate="no">{citySlug.replace(/-/g, ' ')}</span>
+            <Link href={`/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}/${citySlug}`} className="text-blue-400 hover:text-white transition-colors capitalize" translate="no">{citySlug.replace(/-/g, ' ')}</Link>
+          </>
+        )}
+        {branchSlug && (
+          <>
+            <span className="text-slate-600">➔</span>
+            <span className="text-slate-200 capitalize" translate="no">{branchSlug.replace(/-/g, ' ')}</span>
           </>
         )}
       </nav>
@@ -146,12 +159,14 @@ export default function DynamicIfscPage({ params }: { params: { slug?: string[] 
           {dbState && ` ➔ ${dbState.toLowerCase()}`}
           {dbDistrict && ` ➔ ${dbDistrict.toLowerCase()} District`}
           {dbCity && ` ➔ ${dbCity.toLowerCase()}`}
+          {dbBranch && ` ➔ ${dbBranch.toLowerCase()}`}
         </h1>
         <p className="text-slate-400 text-sm font-light">
           {!stateSlug && "Select a State to view available districts."}
           {stateSlug && !districtSlug && "Select a District to explore cities."}
           {districtSlug && !citySlug && "Select a City to pull branch details."}
-          {citySlug && "Showing verified live branch records."}
+          {citySlug && !branchSlug && "Select a Branch to view full details."}
+          {branchSlug && "Showing verified live branch records."}
         </p>
       </div>
 
@@ -162,13 +177,13 @@ export default function DynamicIfscPage({ params }: { params: { slug?: string[] 
         </div>
       ) : (
         <>
-          {/* Grid View for States, Districts, and Cities Cards */}
+          {/* Grid View for States, Districts, Cities, and Branches */}
           {!isFinalBranchView && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {displayCards.length > 0 ? displayCards.map((card, i) => (
                 <Link href={card.url} key={i} className="bg-slate-900/60 p-6 rounded-2xl border border-slate-800 hover:border-blue-500 transition-all flex flex-col items-center justify-center text-center group shadow-md hover:scale-[1.02]">
                    <div className="text-3xl mb-2">
-                     {!stateSlug ? "🗺️" : !districtSlug ? "🏢" : "🏙️"}
+                     {!stateSlug ? "🗺️" : !districtSlug ? "🏢" : !citySlug ? "🏙️" : "🏦"}
                    </div>
                    <h3 className="text-white font-bold text-base capitalize group-hover:text-blue-400 transition-colors" translate="no">{card.name.toLowerCase()}</h3>
                    <span className="text-slate-500 text-xs mt-3 group-hover:text-blue-400 transition-colors">Select Location ➔</span>
@@ -179,32 +194,33 @@ export default function DynamicIfscPage({ params }: { params: { slug?: string[] 
             </div>
           )}
 
-          {/* Final Row View: Shows the actual Bank Branches Data inside the Selected City */}
+          {/* Final View: Actual Branch Data Card */}
           {isFinalBranchView && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 max-w-4xl mx-auto w-full">
               {branchDataToShow.length > 0 ? branchDataToShow.map((row: any, index: number) => {
                 const contact = formatContactNumber(row.contact || row.phone);
                 return (
-                  <div key={index} className="bg-slate-900/80 p-6 rounded-2xl border border-slate-700 hover:border-blue-500/60 relative shadow-2xl flex flex-col transition-all">
+                  <div key={index} className="bg-slate-900/80 p-8 rounded-3xl border border-slate-700 shadow-2xl relative overflow-hidden flex flex-col transition-all">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-bl-[100px] -z-10"></div>
                     <div className="flex justify-between items-start gap-4 mb-4 pb-4 border-b border-slate-700/50">
                       <div className="flex-1 pr-4">
-                        <h3 className="text-xl font-bold text-blue-400 mb-1 capitalize" translate="no">{(row.bank || 'N/A').toLowerCase()}</h3>
-                        <p className="text-sm font-semibold text-slate-300 capitalize" translate="no">📍 {(row.branch || 'N/A').toLowerCase()}</p>
+                        <h3 className="text-2xl md:text-3xl font-extrabold text-blue-400 mb-2 capitalize" translate="no">{(row.bank || 'N/A').toLowerCase()}</h3>
+                        <p className="text-lg font-semibold text-slate-300 capitalize" translate="no">📍 {(row.branch || 'N/A').toLowerCase()}</p>
                       </div>
-                      <span className="bg-blue-600 text-white px-4 py-2 rounded-xl text-lg font-black tracking-widest shadow-md shrink-0">{row.ifsc || 'N/A'}</span>
+                      <span className="bg-blue-600 text-white px-5 py-3 rounded-xl text-lg md:text-xl font-black tracking-widest shadow-md shrink-0">{row.ifsc || 'N/A'}</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-y-4 gap-x-3 pt-2 text-sm flex-grow">
-                      <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">City / Centre</span><span className="text-white font-medium capitalize" translate="no">{(row.centre || row.city || 'N/A').toLowerCase()}</span></div>
-                      <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">Contact Number</span><span className="text-white font-medium">{contact}</span></div>
-                      <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">MICR Code</span><span className="text-white font-medium">{row.micr || 'Not Available'}</span></div>
-                      <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">District</span><span className="text-white font-medium capitalize" translate="no">{(row.district || 'N/A').toLowerCase()}</span></div>
-                      <div className="col-span-2"><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">State</span><span className="text-white font-medium capitalize" translate="no">{(row.state || 'N/A').toLowerCase()}</span></div>
-                      <div className="col-span-2"><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">Address</span><span className="text-white text-xs leading-relaxed capitalize" translate="no">{(row.address || 'N/A').toLowerCase()}</span></div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6 pt-2 text-sm flex-grow">
+                      <div><span className="text-slate-500 text-xs uppercase font-bold block mb-1 tracking-wider">City / Centre</span><span className="text-white text-base font-medium capitalize" translate="no">{(row.centre || row.city || 'N/A').toLowerCase()}</span></div>
+                      <div><span className="text-slate-500 text-xs uppercase font-bold block mb-1 tracking-wider">Contact Number</span><span className="text-white text-base font-medium">{contact}</span></div>
+                      <div><span className="text-slate-500 text-xs uppercase font-bold block mb-1 tracking-wider">MICR Code</span><span className="text-white text-base font-medium">{row.micr || 'Not Available'}</span></div>
+                      <div><span className="text-slate-500 text-xs uppercase font-bold block mb-1 tracking-wider">District</span><span className="text-white text-base font-medium capitalize" translate="no">{(row.district || 'N/A').toLowerCase()}</span></div>
+                      <div className="col-span-1 md:col-span-2"><span className="text-slate-500 text-xs uppercase font-bold block mb-1 tracking-wider">State</span><span className="text-white text-base font-medium capitalize" translate="no">{(row.state || 'N/A').toLowerCase()}</span></div>
+                      <div className="col-span-1 md:col-span-2"><span className="text-slate-500 text-xs uppercase font-bold block mb-1 tracking-wider">Address</span><span className="text-white text-sm leading-relaxed capitalize" translate="no">{(row.address || 'N/A').toLowerCase()}</span></div>
                     </div>
                   </div>
                 )
               }) : (
-                <div className="col-span-full py-12 text-center text-slate-400">No active branches found matching this city location.</div>
+                <div className="col-span-full py-12 text-center text-slate-400">No active branches found matching this location.</div>
               )}
             </div>
           )}
