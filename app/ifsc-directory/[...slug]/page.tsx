@@ -4,10 +4,9 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 
-// Helper to convert URL slugs to database readable text
 const formatFromSlug = (slug: string) => {
   if (!slug) return '';
-  return decodeURIComponent(slug).replace(/-/g, ' ').toUpperCase();
+  return decodeURIComponent(slug).replace(/-/g, ' ').toUpperCase().trim();
 };
 
 const formatToSlug = (text: string) => {
@@ -15,21 +14,19 @@ const formatToSlug = (text: string) => {
   return text.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 };
 
-const formatContact = (contact: any) => {
+const formatContactNumber = (contact: any) => {
   if (!contact || contact === 'Not Available' || contact === 'NULL') return 'Not Available';
-  let str = String(contact).trim();
-  if (str.toUpperCase().includes('E')) return 'Not Available';
-  if (str.endsWith('.0')) str = str.slice(0, -2);
-  return (str === 'NaN' || str === '' || str === '0') ? 'Not Available' : str;
+  let strContact = String(contact).trim();
+  if (strContact.toUpperCase().includes('E')) return 'Not Available';
+  if (strContact.endsWith('.0')) strContact = strContact.slice(0, -2);
+  if (strContact === 'NaN' || strContact === '' || strContact === '0') return 'Not Available';
+  return strContact;
 };
 
-// --- FIX 1: Safely Handle Params by making it async or using Optional Chaining ---
 export default function DynamicIfscPage({ params }: { params: { slug?: string[] } }) {
-  // Safe extraction of slug with a fallback empty array
   const slug = params?.slug || [];
   
-  // URL Path Logic: [bank, state, district, city, branch]
-  // WE ARE ENFORCING THE 5-STEP PATH HERE
+  // Strict 5-Level URL Segment Mapping
   const bankSlug = slug[0] || null;
   const stateSlug = slug[1] || null;
   const districtSlug = slug[2] || null;
@@ -45,7 +42,6 @@ export default function DynamicIfscPage({ params }: { params: { slug?: string[] 
   const [dataList, setDataList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Magic Fetch Logic
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
@@ -54,140 +50,166 @@ export default function DynamicIfscPage({ params }: { params: { slug?: string[] 
         
         if (dbBank) q = q.ilike('bank', `%${dbBank}%`);
         if (dbState) q = q.eq('state', dbState);
-        if (dbDistrict) q = q.eq('district', dbDistrict); // Strict District Filter
-        
-        // Match city OR centre
+        if (dbDistrict) q = q.eq('district', dbDistrict);
         if (dbCity) q = q.or(`centre.eq.${dbCity},city.eq.${dbCity}`);
         if (dbBranch) q = q.ilike('branch', `%${dbBranch}%`);
 
-        // Limit to 1 if we are viewing a branch, otherwise grab enough to build the list
-        q = q.limit(branchSlug ? 1 : 3000); 
+        q = q.limit(branchSlug ? 1 : 3500); 
 
         const { data, error } = await q;
         if (error) throw error;
-        
-        if (data) {
-          setDataList(data);
-        }
+        if (data) setDataList(data);
       } catch (error) {
-        console.error("DB Error", error);
+        console.error("Database query execution error:", error);
       }
       setIsLoading(false);
     };
 
-    fetchData();
-  }, [dbBank, dbState, dbDistrict, dbCity, dbBranch, branchSlug]);
+    if (bankSlug) {
+      fetchData();
+    }
+  }, [dbBank, dbState, dbDistrict, dbCity, dbBranch, bankSlug, stateSlug, districtSlug, citySlug, branchSlug]);
 
-  // Derive next options based on current level (THE EXACT HIERARCHY)
+  // Strict Routing State Computations
   let displayCards: { name: string; url: string }[] = [];
-  
-  if (dataList.length > 0) {
-    if (bankSlug && !stateSlug) {
-      // Show States
-      const states = Array.from(new Set(dataList.map(d => d.state))).filter(Boolean) as string[];
-      displayCards = states.sort().map(s => ({ name: s, url: `/ifsc-directory/${bankSlug}/${formatToSlug(s)}` }));
-    } 
-    else if (bankSlug && stateSlug && !districtSlug) {
-      // Show Districts
-      const districts = Array.from(new Set(dataList.map(d => d.district))).filter(Boolean) as string[];
-      displayCards = districts.sort().map(d => ({ name: d, url: `/ifsc-directory/${bankSlug}/${stateSlug}/${formatToSlug(d)}` }));
-    }
-    else if (bankSlug && stateSlug && districtSlug && !citySlug) {
-      // Show Cities (Centres)
-      const cities = Array.from(new Set(dataList.map(d => d.centre || d.city))).filter(Boolean) as string[];
-      displayCards = cities.sort().map(c => ({ name: c, url: `/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}/${formatToSlug(c)}` }));
-    }
-    else if (bankSlug && stateSlug && districtSlug && citySlug && !branchSlug) {
-      // Show Branches
-      const branches = Array.from(new Set(dataList.map(d => d.branch))).filter(Boolean) as string[];
-      displayCards = branches.sort().map(b => ({ name: b, url: `/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}/${citySlug}/${formatToSlug(b)}` }));
-    }
-  }
+  let isFinalBranchView = false;
+  let branchDataToShow: any[] = [];
 
-  // Final Branch Detail View
-  if (branchSlug && dataList.length > 0) {
-    const branchInfo = dataList[0];
-    return (
-      <div className="max-w-4xl mx-auto py-12 px-4 flex flex-col min-h-screen space-y-6">
-        <Breadcrumbs slugs={slug} />
-        <div className="bg-slate-900/80 p-8 rounded-3xl border border-slate-700 shadow-2xl relative overflow-hidden">
-           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-bl-[100px] -z-10"></div>
-           <div className="flex justify-between items-start border-b border-slate-700 pb-6 mb-6">
-              <div>
-                <h1 className="text-3xl font-extrabold text-blue-400 mb-2 capitalize">{branchInfo.bank?.toLowerCase()}</h1>
-                <p className="text-lg text-white font-medium capitalize">📍 {branchInfo.branch?.toLowerCase()}</p>
-              </div>
-              <span className="bg-blue-600 text-white px-5 py-3 rounded-xl text-xl font-black tracking-widest shadow-lg">{branchInfo.ifsc}</span>
-           </div>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-              <div><span className="text-slate-500 uppercase font-bold block mb-1 text-xs">City</span><span className="text-white text-lg capitalize">{branchInfo.centre?.toLowerCase()}</span></div>
-              <div><span className="text-slate-500 uppercase font-bold block mb-1 text-xs">District</span><span className="text-white text-lg capitalize">{branchInfo.district?.toLowerCase()}</span></div>
-              <div><span className="text-slate-500 uppercase font-bold block mb-1 text-xs">State</span><span className="text-white text-lg capitalize">{branchInfo.state?.toLowerCase()}</span></div>
-              <div><span className="text-slate-500 uppercase font-bold block mb-1 text-xs">Contact</span><span className="text-white text-lg">{formatContact(branchInfo.contact || branchInfo.phone)}</span></div>
-              <div className="col-span-full"><span className="text-slate-500 uppercase font-bold block mb-1 text-xs">Address</span><span className="text-white text-base leading-relaxed capitalize">{branchInfo.address?.toLowerCase()}</span></div>
-           </div>
-        </div>
-      </div>
-    );
+  if (dataList.length > 0) {
+    // Level 1: Only Bank Selected -> Show States
+    if (bankSlug && !stateSlug) {
+      const uniqueStates = Array.from(new Set(dataList.map(d => d.state))).filter(Boolean) as string[];
+      displayCards = uniqueStates.sort().map(s => ({
+        name: s,
+        url: `/ifsc-directory/${bankSlug}/${formatToSlug(s)}`
+      }));
+    } 
+    // Level 2: Bank + State Selected -> Show Districts Strictly
+    else if (bankSlug && stateSlug && !districtSlug) {
+      const uniqueDistricts = Array.from(new Set(dataList.map(d => d.district))).filter(Boolean) as string[];
+      displayCards = uniqueDistricts.sort().map(d => ({
+        name: d,
+        url: `/ifsc-directory/${bankSlug}/${stateSlug}/${formatToSlug(d)}`
+      }));
+    }
+    // Level 3: Bank + State + District Selected -> Show Cities/Centres Strictly
+    else if (bankSlug && stateSlug && districtSlug && !citySlug) {
+      const uniqueCities = Array.from(new Set(dataList.map(d => d.centre || d.city))).filter(Boolean) as string[];
+      displayCards = uniqueCities.sort().map(c => ({
+        name: c,
+        url: `/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}/${formatToSlug(c)}`
+      }));
+    }
+    // Level 4: Bank + State + District + City Selected -> Show Branches Data Directly
+    else if (bankSlug && stateSlug && districtSlug && citySlug) {
+      isFinalBranchView = true;
+      branchDataToShow = dataList;
+    }
   }
 
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 space-y-8 flex flex-col min-h-screen">
-      <Breadcrumbs slugs={slug} />
       
-      <div className="bg-slate-800/40 p-8 rounded-3xl border border-slate-700/50">
+      {/* Dynamic SEO Path Breadcrumbs */}
+      <nav className="flex flex-wrap text-sm font-medium gap-2 bg-slate-900/80 p-4 rounded-xl border border-slate-700 shadow-md">
+        <Link href="/ifsc-directory" className="text-blue-400 hover:text-white transition-colors">BANKS</Link>
+        {bankSlug && (
+          <>
+            <span className="text-slate-600">➔</span>
+            <Link href={`/ifsc-directory/${bankSlug}`} className="text-blue-400 hover:text-white transition-colors capitalize" translate="no">{bankSlug.replace(/-/g, ' ')}</Link>
+          </>
+        )}
+        {stateSlug && (
+          <>
+            <span className="text-slate-600">➔</span>
+            <Link href={`/ifsc-directory/${bankSlug}/${stateSlug}`} className="text-blue-400 hover:text-white transition-colors capitalize" translate="no">{stateSlug.replace(/-/g, ' ')}</Link>
+          </>
+        )}
+        {districtSlug && (
+          <>
+            <span className="text-slate-600">➔</span>
+            <Link href={`/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}`} className="text-blue-400 hover:text-white transition-colors capitalize" translate="no">{districtSlug.replace(/-/g, ' ')}</Link>
+          </>
+        )}
+        {citySlug && (
+          <>
+            <span className="text-slate-600">➔</span>
+            <span className="text-slate-200 capitalize" translate="no">{citySlug.replace(/-/g, ' ')}</span>
+          </>
+        )}
+      </nav>
+
+      {/* Dynamic Header Section */}
+      <div className="bg-slate-800/40 p-8 rounded-3xl border border-slate-700/50 shadow-xl">
         <h1 className="text-3xl font-extrabold text-white capitalize mb-2">
-          {dbBank.toLowerCase()} 
-          {dbState && ` in ${dbState.toLowerCase()}`} 
-          {dbDistrict && ` - ${dbDistrict.toLowerCase()} District`}
-          {dbCity && ` - ${dbCity.toLowerCase()}`}
+          {dbBank.toLowerCase()}
+          {dbState && ` ➔ ${dbState.toLowerCase()}`}
+          {dbDistrict && ` ➔ ${dbDistrict.toLowerCase()} District`}
+          {dbCity && ` ➔ ${dbCity.toLowerCase()}`}
         </h1>
-        <p className="text-slate-400">Select an option below to continue.</p>
+        <p className="text-slate-400 text-sm font-light">
+          {!stateSlug && "Select a State to view available districts."}
+          {stateSlug && !districtSlug && "Select a District to explore cities."}
+          {districtSlug && !citySlug && "Select a City to pull branch details."}
+          {citySlug && "Showing verified live branch records."}
+        </p>
       </div>
 
       {isLoading ? (
-        <div className="py-24 text-center"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div></div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {displayCards.length > 0 ? displayCards.map((card, i) => (
-            <Link href={card.url} key={i} className="bg-slate-900/60 p-6 rounded-2xl border border-slate-700 hover:border-blue-500 transition-all flex flex-col items-center justify-center text-center group">
-               <h3 className="text-white font-semibold text-lg capitalize group-hover:text-blue-400">{card.name.toLowerCase()}</h3>
-               <span className="text-slate-500 text-xs mt-3 group-hover:text-blue-400">View Details ➔</span>
-            </Link>
-          )) : (
-            <p className="text-slate-400 col-span-full text-center py-12">No data found for this selection.</p>
-          )}
+        <div className="py-24 text-center">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-400 text-sm">Querying active routing infrastructure...</p>
         </div>
+      ) : (
+        <>
+          {/* Grid View for States, Districts, and Cities Cards */}
+          {!isFinalBranchView && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {displayCards.length > 0 ? displayCards.map((card, i) => (
+                <Link href={card.url} key={i} className="bg-slate-900/60 p-6 rounded-2xl border border-slate-800 hover:border-blue-500 transition-all flex flex-col items-center justify-center text-center group shadow-md hover:scale-[1.02]">
+                   <div className="text-3xl mb-2">
+                     {!stateSlug ? "🗺️" : !districtSlug ? "🏢" : "🏙️"}
+                   </div>
+                   <h3 className="text-white font-bold text-base capitalize group-hover:text-blue-400 transition-colors" translate="no">{card.name.toLowerCase()}</h3>
+                   <span className="text-slate-500 text-xs mt-3 group-hover:text-blue-400 transition-colors">Select Location ➔</span>
+                </Link>
+              )) : (
+                <p className="text-slate-400 col-span-full text-center py-12">No regional directory items found under this scope.</p>
+              )}
+            </div>
+          )}
+
+          {/* Final Row View: Shows the actual Bank Branches Data inside the Selected City */}
+          {isFinalBranchView && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {branchDataToShow.length > 0 ? branchDataToShow.map((row: any, index: number) => {
+                const contact = formatContactNumber(row.contact || row.phone);
+                return (
+                  <div key={index} className="bg-slate-900/80 p-6 rounded-2xl border border-slate-700 hover:border-blue-500/60 relative shadow-2xl flex flex-col transition-all">
+                    <div className="flex justify-between items-start gap-4 mb-4 pb-4 border-b border-slate-700/50">
+                      <div className="flex-1 pr-4">
+                        <h3 className="text-xl font-bold text-blue-400 mb-1 capitalize" translate="no">{(row.bank || 'N/A').toLowerCase()}</h3>
+                        <p className="text-sm font-semibold text-slate-300 capitalize" translate="no">📍 {(row.branch || 'N/A').toLowerCase()}</p>
+                      </div>
+                      <span className="bg-blue-600 text-white px-4 py-2 rounded-xl text-lg font-black tracking-widest shadow-md shrink-0">{row.ifsc || 'N/A'}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-y-4 gap-x-3 pt-2 text-sm flex-grow">
+                      <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">City / Centre</span><span className="text-white font-medium capitalize" translate="no">{(row.centre || row.city || 'N/A').toLowerCase()}</span></div>
+                      <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">Contact Number</span><span className="text-white font-medium">{contact}</span></div>
+                      <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">MICR Code</span><span className="text-white font-medium">{row.micr || 'Not Available'}</span></div>
+                      <div><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">District</span><span className="text-white font-medium capitalize" translate="no">{(row.district || 'N/A').toLowerCase()}</span></div>
+                      <div className="col-span-2"><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">State</span><span className="text-white font-medium capitalize" translate="no">{(row.state || 'N/A').toLowerCase()}</span></div>
+                      <div className="col-span-2"><span className="text-slate-500 text-[10px] uppercase font-bold block mb-0.5 tracking-wider">Address</span><span className="text-white text-xs leading-relaxed capitalize" translate="no">{(row.address || 'N/A').toLowerCase()}</span></div>
+                    </div>
+                  </div>
+                )
+              }) : (
+                <div className="col-span-full py-12 text-center text-slate-400">No active branches found matching this city location.</div>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
-  );
-}
-
-// --- FIX 2: Safely handle the breadcrumbs mapping ---
-function Breadcrumbs({ slugs }: { slugs: string[] }) {
-  let currentPath = '/ifsc-directory';
-  
-  // Safe return if slugs is not an array or is empty
-  if (!slugs || !Array.isArray(slugs) || slugs.length === 0) {
-     return (
-       <nav className="flex flex-wrap text-sm font-medium gap-2 bg-slate-900/80 p-4 rounded-xl border border-slate-700">
-         <Link href={currentPath} className="text-blue-400 hover:text-white">HOME</Link>
-       </nav>
-     );
-  }
-
-  return (
-    <nav className="flex flex-wrap text-sm font-medium gap-2 bg-slate-900/80 p-4 rounded-xl border border-slate-700">
-      <Link href={currentPath} className="text-blue-400 hover:text-white">HOME</Link>
-      {slugs.map((s, idx) => {
-        currentPath += `/${s}`;
-        return (
-          <span key={idx} className="flex items-center gap-2">
-            <span className="text-slate-600">➔</span>
-            <Link href={currentPath} className="text-blue-400 hover:text-white capitalize">{s.replace(/-/g, ' ')}</Link>
-          </span>
-        );
-      })}
-    </nav>
   );
 }
