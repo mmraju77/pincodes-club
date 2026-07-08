@@ -56,7 +56,14 @@ export default function IfscDirectoryHub() {
   
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  // Debouncing logic (400ms delay to protect DB)
+  // Smooth Scroll Logic for Quick Navigation Cards
+  const scrollToSection = (sectionId: string) => {
+    const section = document.getElementById(sectionId);
+    if (section) {
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedTerm(searchTerm.trim());
@@ -64,7 +71,6 @@ export default function IfscDirectoryHub() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // EXPERT ARCHITECT LOGIC: Acronym Expander & RPC Smart Search
   useEffect(() => {
     const fetchGlobalSearch = async () => {
       if (debouncedTerm.length >= 3) {
@@ -75,7 +81,6 @@ export default function IfscDirectoryHub() {
         try {
           let searchString = debouncedTerm.trim().toLowerCase();
 
-          // 1. Auto-expand Popular Bank Acronyms
           const acronyms: Record<string, string> = {
             'sbi': 'state bank of india',
             'hdfc': 'hdfc bank',
@@ -90,25 +95,20 @@ export default function IfscDirectoryHub() {
             'rbl': 'rbl bank'
           };
 
-          // Replace words like 'sbi' with full name
           for (const [key, value] of Object.entries(acronyms)) {
             const regex = new RegExp(`\\b${key}\\b`, 'gi');
             searchString = searchString.replace(regex, value);
           }
 
-          // 2. Split query into individual words for strict cross-column matching
           const words = searchString.split(/\s+/).filter(w => w.length > 0);
-          
           let dataToUse: any[] = [];
 
-          // 3. Call the Smart RPC function we created in Supabase (Handles Typos & Case)
           const { data, error } = await supabase.rpc('search_ifsc_smart', { 
             search_words: words 
           });
 
           if (error) {
             console.warn("Smart search RPC failed or missing, using robust fallback...");
-            // Fallback Logic just in case RPC was not created correctly
             let q = supabase.from('ifsc_codes').select('bank, state, district, city, centre, branch, ifsc');
             words.forEach(word => {
               const safeWord = word.replace(/"/g, '');
@@ -139,7 +139,6 @@ export default function IfscDirectoryHub() {
     fetchGlobalSearch();
   }, [debouncedTerm]);
 
-  // Handle clicking outside the search box
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
@@ -155,8 +154,9 @@ export default function IfscDirectoryHub() {
   );
 
   return (
-    <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 space-y-12 flex flex-col min-h-screen">
+    <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 space-y-12 flex flex-col min-h-screen scroll-smooth">
       
+      {/* Search Header Section */}
       <div className="bg-slate-800/40 backdrop-blur-md p-8 md:p-12 rounded-3xl border border-slate-700/50 shadow-2xl text-center relative overflow-visible z-50">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-emerald-500 rounded-t-3xl"></div>
         <div className="inline-block px-4 py-1.5 mb-6 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-bold tracking-widest uppercase mt-4">IFSC Directory Hub</div>
@@ -222,33 +222,50 @@ export default function IfscDirectoryHub() {
         </div>
       </div>
 
+      {/* Quick Navigation Section with Scroll Handlers */}
       <section className="relative z-10">
         <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-emerald-500 pl-4">Quick Navigation</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-slate-700 text-center relative overflow-hidden group">
-             <div className="text-3xl mb-2">🏦</div>
-             <h3 className="text-white font-bold mb-1">Search by Bank</h3>
+          <div 
+            onClick={() => scrollToSection('banks-section')}
+            className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-slate-700 text-center relative overflow-hidden group cursor-pointer hover:border-blue-500 transition-all active:scale-95 shadow-md hover:shadow-blue-900/20"
+          >
+             <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">🏦</div>
+             <h3 className="text-white font-bold mb-1 group-hover:text-blue-400 transition-colors">Search by Bank</h3>
              <p className="text-slate-400 text-xs">Select a bank below to start.</p>
           </div>
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-slate-700 text-center relative overflow-hidden group">
-             <div className="text-3xl mb-2">🗺️</div>
-             <h3 className="text-white font-bold mb-1">Search by State</h3>
+          
+          <div 
+            onClick={() => scrollToSection('banks-section')}
+            className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-slate-700 text-center relative overflow-hidden group cursor-pointer hover:border-blue-500 transition-all active:scale-95 shadow-md hover:shadow-blue-900/20"
+          >
+             <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">🗺️</div>
+             <h3 className="text-white font-bold mb-1 group-hover:text-blue-400 transition-colors">Search by State</h3>
              <p className="text-slate-400 text-xs">Available after selecting a Bank.</p>
           </div>
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-slate-700 text-center relative overflow-hidden group">
-             <div className="text-3xl mb-2">🏢</div>
-             <h3 className="text-white font-bold mb-1">Search by District</h3>
+          
+          <div 
+            onClick={() => scrollToSection('banks-section')}
+            className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-slate-700 text-center relative overflow-hidden group cursor-pointer hover:border-blue-500 transition-all active:scale-95 shadow-md hover:shadow-blue-900/20"
+          >
+             <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">🏢</div>
+             <h3 className="text-white font-bold mb-1 group-hover:text-blue-400 transition-colors">Search by District</h3>
              <p className="text-slate-400 text-xs">Available after selecting a State.</p>
           </div>
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-slate-700 text-center relative overflow-hidden group">
-             <div className="text-3xl mb-2">🏙️</div>
-             <h3 className="text-white font-bold mb-1">Popular Cities</h3>
+          
+          <div 
+            onClick={() => scrollToSection('cities-section')}
+            className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-slate-700 text-center relative overflow-hidden group cursor-pointer hover:border-purple-500 transition-all active:scale-95 shadow-md hover:shadow-purple-900/20"
+          >
+             <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">🏙️</div>
+             <h3 className="text-white font-bold mb-1 group-hover:text-purple-400 transition-colors">Popular Cities</h3>
              <p className="text-slate-400 text-xs">Scroll down for quick links.</p>
           </div>
         </div>
       </section>
 
-      <section className="relative z-10">
+      {/* ALL BANKS GRID - ID added for scrolling */}
+      <section id="banks-section" className="relative z-10 scroll-mt-24">
         <div className="flex justify-between items-end mb-6">
           <h2 className="text-2xl font-bold text-white border-l-4 border-blue-500 pl-4">All Indian Banks</h2>
           <span className="text-slate-500 text-sm">{filteredBanks.length} Banks</span>
@@ -259,8 +276,8 @@ export default function IfscDirectoryHub() {
             {filteredBanks.map((bankName, index) => {
               const slug = formatToSlug(bankName);
               return (
-                <Link href={`/ifsc-directory/${slug}`} key={index} className="bg-slate-900/60 p-4 rounded-xl border border-slate-700 hover:border-blue-500 hover:bg-slate-800 transition-all flex flex-col items-center justify-center text-center group">
-                  <div className="text-2xl mb-2 opacity-80 group-hover:opacity-100 transition-opacity">🏦</div>
+                <Link href={`/ifsc-directory/${slug}`} key={index} className="bg-slate-900/60 p-4 rounded-xl border border-slate-700 hover:border-blue-500 hover:bg-slate-800 transition-all flex flex-col items-center justify-center text-center group shadow-sm hover:shadow-md">
+                  <div className="text-2xl mb-2 opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all">🏦</div>
                   <h3 className="text-slate-200 font-semibold text-sm group-hover:text-blue-400 transition-colors">{bankName}</h3>
                 </Link>
               );
@@ -269,20 +286,21 @@ export default function IfscDirectoryHub() {
         ) : null}
       </section>
 
-      <section className="relative z-10">
+      {/* Popular Cities Links - ID added for scrolling */}
+      <section id="cities-section" className="relative z-10 scroll-mt-24">
         <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-purple-500 pl-4">Direct Popular City Links</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {POPULAR_CITIES.map((city, index) => (
             <Link 
               href={`/ifsc-directory/${city.bank}/${city.state}/${city.dist}/${city.city}`} 
               key={index} 
-              className="bg-slate-900/60 p-4 rounded-xl border border-slate-700 hover:border-purple-500 hover:bg-slate-800 transition-all flex items-center justify-between group"
+              className="bg-slate-900/60 p-4 rounded-xl border border-slate-700 hover:border-purple-500 hover:bg-slate-800 transition-all flex items-center justify-between group shadow-sm hover:shadow-md"
             >
               <div>
-                <h3 className="text-white font-bold group-hover:text-purple-400">{city.name}</h3>
+                <h3 className="text-white font-bold group-hover:text-purple-400 transition-colors">{city.name}</h3>
                 <p className="text-xs text-slate-500 uppercase">{city.bank.replace(/-/g, ' ')}</p>
               </div>
-              <span className="text-slate-500 group-hover:text-purple-400">➔</span>
+              <span className="text-slate-500 group-hover:text-purple-400 group-hover:translate-x-1 transition-transform">➔</span>
             </Link>
           ))}
         </div>
