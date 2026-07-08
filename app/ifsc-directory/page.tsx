@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 
+// Massive list of all Indian Banks
 const ALL_BANKS = [
   "Abhyudaya Co-operative Bank", "Aditya Birla Idea Payments Bank", "Airtel Payments Bank", "Allahabad Bank", "Andhra Bank",
   "Andhra Pragathi Grameena Bank", "Apna Sahakari Bank", "Axis Bank", "Bandhan Bank", "Bank of America",
@@ -55,15 +56,15 @@ export default function IfscDirectoryHub() {
   
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  // Debouncing logic
+  // Debounce user input by 400ms
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedTerm(searchTerm.trim());
-    }, 500); // 500ms delay to prevent rapid API calls
+    }, 400); 
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Expert Fix: Powerful and Safe Search Query
+  // EXPERT FIX: Advanced Multi-Word & Acronym Smart Search
   useEffect(() => {
     const fetchGlobalSearch = async () => {
       if (debouncedTerm.length >= 3) {
@@ -72,24 +73,50 @@ export default function IfscDirectoryHub() {
         setSearchError(null);
         
         try {
-          // Properly encode the search term for Supabase to avoid syntax errors
-          const query = `%${debouncedTerm}%`;
-          
-          // Using a more explicit OR syntax that Supabase guarantees to parse correctly
-          const { data, error } = await supabase
-            .from('ifsc_codes')
-            .select('bank, state, district, city, centre, branch, ifsc')
-            .or(`ifsc.ilike."${query}",bank.ilike."${query}",branch.ilike."${query}",city.ilike."${query}",centre.ilike."${query}",district.ilike."${query}"`)
-            .limit(10);
+          let searchString = debouncedTerm.trim().toLowerCase();
 
-          if (error) {
-             console.error("Supabase Error Details:", error);
-             throw new Error(error.message);
+          // 1. Auto-expand Bank Acronyms
+          const acronyms: Record<string, string> = {
+            'sbi': 'state bank of india',
+            'hdfc': 'hdfc bank',
+            'icici': 'icici bank',
+            'pnb': 'punjab national bank',
+            'bob': 'bank of baroda',
+            'boi': 'bank of india',
+            'cbi': 'central bank of india',
+            'iob': 'indian overseas bank',
+            'bom': 'bank of maharashtra',
+            'ubi': 'union bank of india',
+            'rbl': 'rbl bank'
+          };
+
+          for (const [key, value] of Object.entries(acronyms)) {
+            const regex = new RegExp(`\\b${key}\\b`, 'gi');
+            searchString = searchString.replace(regex, value);
           }
+
+          // 2. Split into individual words
+          const words = searchString.split(/\s+/).filter(w => w.length > 0);
+          
+          let q = supabase
+            .from('ifsc_codes')
+            .select('bank, state, district, city, centre, branch, ifsc');
+            
+          // 3. Apply AND logic across OR conditions (Ensures ALL typed words match somewhere)
+          words.forEach(word => {
+            const safeWord = word.replace(/"/g, ''); // Security sanitization
+            const query = `%${safeWord}%`;
+            q = q.or(`ifsc.ilike."${query}",bank.ilike."${query}",branch.ilike."${query}",city.ilike."${query}",centre.ilike."${query}",district.ilike."${query}"`);
+          });
+
+          const { data, error } = await q.limit(15);
+
+          if (error) throw new Error(error.message);
           
           if (data) {
              setSearchResults(data);
           }
+          
         } catch (err: any) {
           console.error("Search failed:", err.message);
           setSearchError("Unable to fetch data. Please try again.");
@@ -106,7 +133,6 @@ export default function IfscDirectoryHub() {
     fetchGlobalSearch();
   }, [debouncedTerm]);
 
-  // Click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
@@ -134,7 +160,7 @@ export default function IfscDirectoryHub() {
           <svg className="w-6 h-6 absolute left-4 top-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input 
             type="text" 
-            placeholder="Search e.g., 'SBI Ameerpet', 'Visakhapatnam', 'SBIN0001234'..." 
+            placeholder="Search e.g., 'SBI Gajuwaka', 'HDFC Mumbai', 'SBIN0001234'..." 
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
