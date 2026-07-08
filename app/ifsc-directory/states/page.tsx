@@ -53,26 +53,26 @@ export default function StatesDirectoryPage() {
         ))}
       </div>
 
-      {/* Smart Modal for Bank Selection */}
+      {/* EXPERT UX FIX: Brighter, more legible Modal */}
       {selectedState && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 md:p-8 w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/10 rounded-bl-full -z-10"></div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
+          <div className="bg-slate-800 border-2 border-emerald-500/50 rounded-3xl p-6 md:p-8 w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-bl-full -z-10 blur-2xl"></div>
             
-            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-700">
+            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-600">
               <div>
-                <h2 className="text-2xl font-bold text-white">Select a Bank</h2>
-                <p className="text-emerald-400 text-sm font-medium mt-1">in {selectedState}</p>
+                <h2 className="text-3xl font-extrabold text-white">Select a Bank</h2>
+                <p className="text-emerald-400 text-base font-bold mt-1 tracking-wide uppercase">in {selectedState}</p>
               </div>
-              <button onClick={() => setSelectedState(null)} className="text-slate-400 hover:text-red-400 text-3xl font-light transition-colors">&times;</button>
+              <button onClick={() => setSelectedState(null)} className="text-slate-300 hover:text-white bg-slate-700 hover:bg-red-500 rounded-full w-10 h-10 flex items-center justify-center text-2xl transition-all shadow-lg">&times;</button>
             </div>
             
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 overflow-y-auto custom-scrollbar pr-2 pb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 overflow-y-auto custom-scrollbar pr-2 pb-4">
               {ALL_BANKS.map(bank => (
                 <button 
                   key={bank} 
                   onClick={() => router.push(`/ifsc-directory/${formatToSlug(bank)}/${formatToSlug(selectedState)}`)}
-                  className="bg-slate-800 p-3 rounded-lg border border-slate-700 hover:border-blue-500 hover:bg-slate-700 text-sm text-slate-300 hover:text-white transition-all text-left truncate"
+                  className="bg-slate-900/80 p-4 rounded-xl border border-slate-600 hover:border-emerald-400 hover:bg-slate-700 text-sm font-semibold text-slate-200 hover:text-white transition-all text-left truncate shadow-md hover:shadow-emerald-500/20"
                 >
                   {bank}
                 </button>

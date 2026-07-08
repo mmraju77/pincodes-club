@@ -20,28 +20,32 @@ const formatToSlug = (text: string) => text.toLowerCase().trim().replace(/[^a-z0
 export default function DistrictsDirectoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [districts, setDistricts] = useState<{district: string, state: string}[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedLocation, setSelectedLocation] = useState<{district: string, state: string} | null>(null);
   const router = useRouter();
 
+  // EXPERT ARCHITECTURE: Load all districts initially, then filter locally for speed, or fetch from DB if typed
   useEffect(() => {
     const fetchDistricts = async () => {
-      if (searchTerm.trim().length < 3) {
-        setDistricts([]);
-        return;
-      }
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('ifsc_codes')
-          .select('district, state')
-          .ilike('district', `%${searchTerm.trim()}%`)
-          .limit(100);
+        let q = supabase.from('ifsc_codes').select('district, state');
+        
+        if (searchTerm.trim().length >= 3) {
+           q = q.ilike('district', `%${searchTerm.trim()}%`).limit(100);
+        } else {
+           // Default load: Fetch a mix of popular districts to populate the page
+           q = q.limit(200); 
+        }
+
+        const { data, error } = await q;
           
         if (data && !error) {
-          // Remove duplicates to show clean distinct district names
           const uniqueSet = new Set(data.map(d => JSON.stringify({ district: d.district, state: d.state })));
-          const uniqueArray = Array.from(uniqueSet).map(s => JSON.parse(s));
+          let uniqueArray = Array.from(uniqueSet).map(s => JSON.parse(s));
+          
+          // Sort alphabetically
+          uniqueArray.sort((a, b) => (a.district > b.district) ? 1 : -1);
           setDistricts(uniqueArray);
         }
       } catch (err) {
@@ -50,7 +54,7 @@ export default function DistrictsDirectoryPage() {
       setIsLoading(false);
     };
 
-    const timer = setTimeout(fetchDistricts, 400);
+    const timer = setTimeout(fetchDistricts, 300);
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
@@ -81,9 +85,9 @@ export default function DistrictsDirectoryPage() {
       {isLoading ? (
          <div className="text-center py-12">
              <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-             <p className="text-slate-400">Searching Districts...</p>
+             <p className="text-slate-400">Loading Districts...</p>
          </div>
-      ) : (
+      ) : districts.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {districts.map((item, idx) => (
             <div 
@@ -96,28 +100,32 @@ export default function DistrictsDirectoryPage() {
             </div>
           ))}
         </div>
+      ) : (
+         <div className="text-center py-12 text-slate-400">
+             No districts found matching "{searchTerm}"
+         </div>
       )}
 
-      {/* Smart Modal for Bank Selection */}
+      {/* EXPERT UX FIX: Brighter, more legible Modal for Districts */}
       {selectedLocation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 md:p-8 w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-40 h-40 bg-purple-500/10 rounded-bl-full -z-10"></div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
+          <div className="bg-slate-800 border-2 border-purple-500/50 rounded-3xl p-6 md:p-8 w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-bl-full -z-10 blur-2xl"></div>
             
-            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-700">
+            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-600">
               <div>
-                <h2 className="text-2xl font-bold text-white">Select a Bank</h2>
-                <p className="text-purple-400 text-sm font-medium mt-1 capitalize">in {selectedLocation.district?.toLowerCase()}, {selectedLocation.state?.toLowerCase()}</p>
+                <h2 className="text-3xl font-extrabold text-white">Select a Bank</h2>
+                <p className="text-purple-400 text-sm font-bold mt-1 uppercase tracking-wide">in {selectedLocation.district?.toLowerCase()}, {selectedLocation.state?.toLowerCase()}</p>
               </div>
-              <button onClick={() => setSelectedLocation(null)} className="text-slate-400 hover:text-red-400 text-3xl font-light transition-colors">&times;</button>
+              <button onClick={() => setSelectedLocation(null)} className="text-slate-300 hover:text-white bg-slate-700 hover:bg-red-500 rounded-full w-10 h-10 flex items-center justify-center text-2xl transition-all shadow-lg">&times;</button>
             </div>
             
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 overflow-y-auto custom-scrollbar pr-2 pb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 overflow-y-auto custom-scrollbar pr-2 pb-4">
               {ALL_BANKS.map(bank => (
                 <button 
                   key={bank} 
                   onClick={() => router.push(`/ifsc-directory/${formatToSlug(bank)}/${formatToSlug(selectedLocation.state)}/${formatToSlug(selectedLocation.district)}`)}
-                  className="bg-slate-800 p-3 rounded-lg border border-slate-700 hover:border-purple-500 hover:bg-slate-700 text-sm text-slate-300 hover:text-white transition-all text-left truncate"
+                  className="bg-slate-900/80 p-4 rounded-xl border border-slate-600 hover:border-purple-400 hover:bg-slate-700 text-sm font-semibold text-slate-200 hover:text-white transition-all text-left truncate shadow-md hover:shadow-purple-500/20"
                 >
                   {bank}
                 </button>
