@@ -53,7 +53,6 @@ export default function StatesDirectoryPage() {
         ))}
       </div>
 
-      {/* EXPERT UX FIX: Brighter, more legible Modal */}
       {selectedState && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
           <div className="bg-slate-800 border-2 border-emerald-500/50 rounded-3xl p-6 md:p-8 w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl relative overflow-hidden">
@@ -72,7 +71,7 @@ export default function StatesDirectoryPage() {
                 <button 
                   key={bank} 
                   onClick={() => router.push(`/ifsc-directory/${formatToSlug(bank)}/${formatToSlug(selectedState)}`)}
-                  className="bg-slate-900/80 p-4 rounded-xl border border-slate-600 hover:border-emerald-400 hover:bg-slate-700 text-sm font-semibold text-slate-200 hover:text-white transition-all text-left truncate shadow-md hover:shadow-emerald-500/20"
+                  className="bg-slate-900/80 p-4 rounded-xl border border-slate-600 hover:border-emerald-400 hover:bg-slate-700 text-sm font-extrabold text-amber-400 hover:text-amber-300 transition-all text-center flex items-center justify-center shadow-md hover:shadow-emerald-500/20"
                 >
                   {bank}
                 </button>

@@ -5,26 +5,21 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
 
-const ALL_BANKS = [
-  "Abhyudaya Co-operative Bank", "Airtel Payments Bank", "Allahabad Bank", "Andhra Bank", "Axis Bank", "Bandhan Bank", 
-  "Bank of Baroda", "Bank of India", "Bank of Maharashtra", "Canara Bank", "Central Bank of India", "Citi Bank", 
-  "City Union Bank", "Corporation Bank", "DBS Bank", "Dena Bank", "Equitas Small Finance Bank", "Federal Bank", 
-  "HDFC Bank", "ICICI Bank", "IDBI Bank", "IDFC First Bank", "Indian Bank", "Indian Overseas Bank", "Indusind Bank", 
-  "Jammu and Kashmir Bank", "Karnataka Bank", "Karur Vysya Bank", "Kotak Mahindra Bank", "Paytm Payments Bank", 
-  "Punjab National Bank", "RBL Bank", "South Indian Bank", "State Bank of India", "Syndicate Bank", "UCO Bank", 
-  "Union Bank of India", "Yes Bank"
-];
-
 const formatToSlug = (text: string) => text.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
 export default function DistrictsDirectoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [districts, setDistricts] = useState<{district: string, state: string}[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Modal States
   const [selectedLocation, setSelectedLocation] = useState<{district: string, state: string} | null>(null);
+  const [districtBanks, setDistrictBanks] = useState<string[]>([]);
+  const [isFetchingBanks, setIsFetchingBanks] = useState(false);
+  
   const router = useRouter();
 
-  // EXPERT ARCHITECTURE: Load all districts initially, then filter locally for speed, or fetch from DB if typed
+  // Load all districts initially or search
   useEffect(() => {
     const fetchDistricts = async () => {
       setIsLoading(true);
@@ -34,7 +29,6 @@ export default function DistrictsDirectoryPage() {
         if (searchTerm.trim().length >= 3) {
            q = q.ilike('district', `%${searchTerm.trim()}%`).limit(100);
         } else {
-           // Default load: Fetch a mix of popular districts to populate the page
            q = q.limit(200); 
         }
 
@@ -43,8 +37,6 @@ export default function DistrictsDirectoryPage() {
         if (data && !error) {
           const uniqueSet = new Set(data.map(d => JSON.stringify({ district: d.district, state: d.state })));
           let uniqueArray = Array.from(uniqueSet).map(s => JSON.parse(s));
-          
-          // Sort alphabetically
           uniqueArray.sort((a, b) => (a.district > b.district) ? 1 : -1);
           setDistricts(uniqueArray);
         }
@@ -57,6 +49,31 @@ export default function DistrictsDirectoryPage() {
     const timer = setTimeout(fetchDistricts, 300);
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
+  // EXPERT ARCHITECTURE: Fetch ONLY the banks available in the clicked district
+  const handleDistrictClick = async (item: {district: string, state: string}) => {
+    setSelectedLocation(item);
+    setIsFetchingBanks(true);
+    setDistrictBanks([]); // Clear previous modal data
+    
+    try {
+      const { data, error } = await supabase
+        .from('ifsc_codes')
+        .select('bank')
+        .eq('district', item.district)
+        .eq('state', item.state);
+        
+      if (data && !error) {
+        // Extract unique bank names for this specific district and sort them
+        const uniqueBanks = Array.from(new Set(data.map(d => d.bank))).filter(Boolean) as string[];
+        uniqueBanks.sort();
+        setDistrictBanks(uniqueBanks);
+      }
+    } catch (err) {
+      console.error("Error fetching banks for district:", err);
+    }
+    setIsFetchingBanks(false);
+  };
 
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 min-h-screen relative">
@@ -92,7 +109,7 @@ export default function DistrictsDirectoryPage() {
           {districts.map((item, idx) => (
             <div 
               key={idx} 
-              onClick={() => setSelectedLocation(item)}
+              onClick={() => handleDistrictClick(item)}
               className="bg-slate-900/80 p-5 rounded-2xl border border-slate-700 hover:border-blue-500 hover:bg-slate-800 transition-all cursor-pointer group shadow-lg flex flex-col justify-between"
             >
               <h3 className="text-white font-bold text-lg mb-1 capitalize group-hover:text-blue-400" translate="no">{item.district?.toLowerCase()}</h3>
@@ -106,7 +123,7 @@ export default function DistrictsDirectoryPage() {
          </div>
       )}
 
-      {/* EXPERT UX FIX: Brighter, more legible Modal for Districts */}
+      {/* Dynamic Smart Modal for District Banks */}
       {selectedLocation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
           <div className="bg-slate-800 border-2 border-purple-500/50 rounded-3xl p-6 md:p-8 w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl relative overflow-hidden">
@@ -120,17 +137,28 @@ export default function DistrictsDirectoryPage() {
               <button onClick={() => setSelectedLocation(null)} className="text-slate-300 hover:text-white bg-slate-700 hover:bg-red-500 rounded-full w-10 h-10 flex items-center justify-center text-2xl transition-all shadow-lg">&times;</button>
             </div>
             
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 overflow-y-auto custom-scrollbar pr-2 pb-4">
-              {ALL_BANKS.map(bank => (
-                <button 
-                  key={bank} 
-                  onClick={() => router.push(`/ifsc-directory/${formatToSlug(bank)}/${formatToSlug(selectedLocation.state)}/${formatToSlug(selectedLocation.district)}`)}
-                  className="bg-slate-900/80 p-4 rounded-xl border border-slate-600 hover:border-purple-400 hover:bg-slate-700 text-sm font-semibold text-slate-200 hover:text-white transition-all text-left truncate shadow-md hover:shadow-purple-500/20"
-                >
-                  {bank}
-                </button>
-              ))}
-            </div>
+            {isFetchingBanks ? (
+               <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                  <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-slate-400 font-medium">Scanning Live Database for Banks...</p>
+               </div>
+            ) : districtBanks.length > 0 ? (
+               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 overflow-y-auto custom-scrollbar pr-2 pb-4">
+                 {districtBanks.map(bank => (
+                   <button 
+                     key={bank} 
+                     onClick={() => router.push(`/ifsc-directory/${formatToSlug(bank)}/${formatToSlug(selectedLocation.state)}/${formatToSlug(selectedLocation.district)}`)}
+                     className="bg-slate-900/80 p-4 rounded-xl border border-slate-600 hover:border-purple-400 hover:bg-slate-700 text-sm font-extrabold text-amber-400 hover:text-amber-300 transition-all text-center flex items-center justify-center break-words shadow-md hover:shadow-purple-500/20"
+                   >
+                     {bank}
+                   </button>
+                 ))}
+               </div>
+            ) : (
+               <div className="text-center py-12">
+                  <p className="text-slate-300 text-lg font-semibold">No active banks found in this district.</p>
+               </div>
+            )}
           </div>
         </div>
       )}
