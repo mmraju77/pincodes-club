@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 
-// Massive list of all Indian Banks
 const ALL_BANKS = [
   "Abhyudaya Co-operative Bank", "Aditya Birla Idea Payments Bank", "Airtel Payments Bank", "Allahabad Bank", "Andhra Bank",
   "Andhra Pragathi Grameena Bank", "Apna Sahakari Bank", "Axis Bank", "Bandhan Bank", "Bank of America",
@@ -36,7 +35,6 @@ const formatToSlug = (text: string) => {
   return text.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 };
 
-// Helper function to dynamically build the 5-step SEO URL from a database record
 const buildBranchUrl = (row: any) => {
   const b = formatToSlug(row.bank);
   const s = formatToSlug(row.state);
@@ -50,40 +48,55 @@ export default function IfscDirectoryHub() {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedTerm, setDebouncedTerm] = useState('');
   
-  // States for Universal DB Search
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearchingDB, setIsSearchingDB] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  // 1. Debounce Logic: Wait 400ms after user stops typing to prevent DB spam
+  // Debouncing logic
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedTerm(searchTerm), 400);
+    const timer = setTimeout(() => {
+      setDebouncedTerm(searchTerm.trim());
+    }, 500); // 500ms delay to prevent rapid API calls
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // 2. Fetch Live Data from Supabase when Debounced Term changes
+  // Expert Fix: Powerful and Safe Search Query
   useEffect(() => {
     const fetchGlobalSearch = async () => {
-      if (debouncedTerm.trim().length >= 3) {
+      if (debouncedTerm.length >= 3) {
         setIsSearchingDB(true);
         setShowDropdown(true);
+        setSearchError(null);
+        
         try {
-          const cleanQuery = debouncedTerm.trim().toLowerCase().replace(/\s+/g, '%');
+          // Properly encode the search term for Supabase to avoid syntax errors
+          const query = `%${debouncedTerm}%`;
           
-          // Powerful OR condition to search across ALL columns simultaneously
+          // Using a more explicit OR syntax that Supabase guarantees to parse correctly
           const { data, error } = await supabase
             .from('ifsc_codes')
             .select('bank, state, district, city, centre, branch, ifsc')
-            .or(`ifsc.ilike.%${cleanQuery}%,bank.ilike.%${cleanQuery}%,branch.ilike.%${cleanQuery}%,city.ilike.%${cleanQuery}%,centre.ilike.%${cleanQuery}%,district.ilike.%${cleanQuery}%`)
-            .limit(10); // Limit to Top 10 for performance and clean UI
+            .or(`ifsc.ilike."${query}",bank.ilike."${query}",branch.ilike."${query}",city.ilike."${query}",centre.ilike."${query}",district.ilike."${query}"`)
+            .limit(10);
 
-          if (error) throw error;
-          if (data) setSearchResults(data);
-        } catch (error) {
-          console.error("Universal Search Error:", error);
+          if (error) {
+             console.error("Supabase Error Details:", error);
+             throw new Error(error.message);
+          }
+          
+          if (data) {
+             setSearchResults(data);
+          }
+        } catch (err: any) {
+          console.error("Search failed:", err.message);
+          setSearchError("Unable to fetch data. Please try again.");
+          setSearchResults([]);
+        } finally {
+          setIsSearchingDB(false);
         }
-        setIsSearchingDB(false);
       } else {
         setSearchResults([]);
         setShowDropdown(false);
@@ -93,7 +106,7 @@ export default function IfscDirectoryHub() {
     fetchGlobalSearch();
   }, [debouncedTerm]);
 
-  // 3. Close dropdown when clicked outside the search bar
+  // Click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
@@ -104,7 +117,6 @@ export default function IfscDirectoryHub() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Simple filter for the Bank Cards Grid below
   const filteredBanks = ALL_BANKS.filter(bank => 
     bank.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -112,14 +124,12 @@ export default function IfscDirectoryHub() {
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 space-y-12 flex flex-col min-h-screen">
       
-      {/* Header Section with Universal Search Bar */}
       <div className="bg-slate-800/40 backdrop-blur-md p-8 md:p-12 rounded-3xl border border-slate-700/50 shadow-2xl text-center relative overflow-visible z-50">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-emerald-500 rounded-t-3xl"></div>
         <div className="inline-block px-4 py-1.5 mb-6 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-bold tracking-widest uppercase mt-4">IFSC Directory Hub</div>
         <h1 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-4">India Bank Routing Center</h1>
         <p className="text-slate-400 text-lg max-w-2xl mx-auto mb-8">Search instantly by Bank Name, Branch, City, District, or IFSC Code.</p>
         
-        {/* Universal Search Container */}
         <div className="max-w-2xl mx-auto relative text-left" ref={searchContainerRef}>
           <svg className="w-6 h-6 absolute left-4 top-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input 
@@ -134,7 +144,6 @@ export default function IfscDirectoryHub() {
             className="w-full bg-slate-900 border-2 border-slate-600 text-white rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:border-blue-500 transition-all shadow-lg font-medium text-lg"
           />
           
-          {/* Universal Search Dropdown Overlay */}
           {showDropdown && searchTerm.length >= 3 && (
             <div className="absolute top-full left-0 w-full mt-2 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl z-50 max-h-[400px] overflow-y-auto custom-scrollbar">
               {isSearchingDB ? (
@@ -142,6 +151,8 @@ export default function IfscDirectoryHub() {
                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                    <p className="text-slate-400 font-medium">Scanning Live Database...</p>
                 </div>
+              ) : searchError ? (
+                <div className="p-6 text-center text-red-400 font-medium">{searchError}</div>
               ) : searchResults.length > 0 ? (
                 <div className="flex flex-col">
                   <div className="px-4 py-2 bg-slate-900/80 border-b border-slate-700 text-xs font-bold text-slate-400 uppercase tracking-wider sticky top-0 backdrop-blur-md">
@@ -178,7 +189,6 @@ export default function IfscDirectoryHub() {
         </div>
       </div>
 
-      {/* Quick Navigation Cards */}
       <section className="relative z-10">
         <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-emerald-500 pl-4">Quick Navigation</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -205,7 +215,6 @@ export default function IfscDirectoryHub() {
         </div>
       </section>
 
-      {/* ALL BANKS GRID */}
       <section className="relative z-10">
         <div className="flex justify-between items-end mb-6">
           <h2 className="text-2xl font-bold text-white border-l-4 border-blue-500 pl-4">All Indian Banks</h2>
@@ -227,7 +236,6 @@ export default function IfscDirectoryHub() {
         ) : null}
       </section>
 
-      {/* Popular Cities Links */}
       <section className="relative z-10">
         <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-purple-500 pl-4">Direct Popular City Links</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -246,7 +254,6 @@ export default function IfscDirectoryHub() {
           ))}
         </div>
       </section>
-
     </div>
   );
 }
