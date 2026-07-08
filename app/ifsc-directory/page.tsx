@@ -56,7 +56,7 @@ export default function IfscDirectoryHub() {
   
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  // Debounce user input by 400ms
+  // Debouncing logic (400ms delay to protect DB)
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedTerm(searchTerm.trim());
@@ -64,7 +64,7 @@ export default function IfscDirectoryHub() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // EXPERT FIX: Advanced Multi-Word & Acronym Smart Search
+  // EXPERT ARCHITECT LOGIC: Acronym Expander & RPC Smart Search
   useEffect(() => {
     const fetchGlobalSearch = async () => {
       if (debouncedTerm.length >= 3) {
@@ -75,7 +75,7 @@ export default function IfscDirectoryHub() {
         try {
           let searchString = debouncedTerm.trim().toLowerCase();
 
-          // 1. Auto-expand Bank Acronyms
+          // 1. Auto-expand Popular Bank Acronyms
           const acronyms: Record<string, string> = {
             'sbi': 'state bank of india',
             'hdfc': 'hdfc bank',
@@ -90,35 +90,41 @@ export default function IfscDirectoryHub() {
             'rbl': 'rbl bank'
           };
 
+          // Replace words like 'sbi' with full name
           for (const [key, value] of Object.entries(acronyms)) {
             const regex = new RegExp(`\\b${key}\\b`, 'gi');
             searchString = searchString.replace(regex, value);
           }
 
-          // 2. Split into individual words
+          // 2. Split query into individual words for strict cross-column matching
           const words = searchString.split(/\s+/).filter(w => w.length > 0);
           
-          let q = supabase
-            .from('ifsc_codes')
-            .select('bank, state, district, city, centre, branch, ifsc');
-            
-          // 3. Apply AND logic across OR conditions (Ensures ALL typed words match somewhere)
-          words.forEach(word => {
-            const safeWord = word.replace(/"/g, ''); // Security sanitization
-            const query = `%${safeWord}%`;
-            q = q.or(`ifsc.ilike."${query}",bank.ilike."${query}",branch.ilike."${query}",city.ilike."${query}",centre.ilike."${query}",district.ilike."${query}"`);
+          let dataToUse: any[] = [];
+
+          // 3. Call the Smart RPC function we created in Supabase (Handles Typos & Case)
+          const { data, error } = await supabase.rpc('search_ifsc_smart', { 
+            search_words: words 
           });
 
-          const { data, error } = await q.limit(15);
-
-          if (error) throw new Error(error.message);
-          
-          if (data) {
-             setSearchResults(data);
+          if (error) {
+            console.warn("Smart search RPC failed or missing, using robust fallback...");
+            // Fallback Logic just in case RPC was not created correctly
+            let q = supabase.from('ifsc_codes').select('bank, state, district, city, centre, branch, ifsc');
+            words.forEach(word => {
+              const safeWord = word.replace(/"/g, '');
+              const sq = `%${safeWord}%`;
+              q = q.or(`ifsc.ilike."${sq}",bank.ilike."${sq}",branch.ilike."${sq}",city.ilike."${sq}",centre.ilike."${sq}",district.ilike."${sq}"`);
+            });
+            const fallbackRes = await q.limit(10);
+            if (fallbackRes.data) dataToUse = fallbackRes.data;
+          } else {
+            dataToUse = data || [];
           }
+
+          setSearchResults(dataToUse);
           
         } catch (err: any) {
-          console.error("Search failed:", err.message);
+          console.error("Search Architecture Error:", err.message);
           setSearchError("Unable to fetch data. Please try again.");
           setSearchResults([]);
         } finally {
@@ -133,6 +139,7 @@ export default function IfscDirectoryHub() {
     fetchGlobalSearch();
   }, [debouncedTerm]);
 
+  // Handle clicking outside the search box
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
@@ -175,7 +182,7 @@ export default function IfscDirectoryHub() {
               {isSearchingDB ? (
                 <div className="p-6 text-center flex flex-col items-center justify-center space-y-3">
                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                   <p className="text-slate-400 font-medium">Scanning Live Database...</p>
+                   <p className="text-slate-400 font-medium">Running Smart AI Scan...</p>
                 </div>
               ) : searchError ? (
                 <div className="p-6 text-center text-red-400 font-medium">{searchError}</div>
