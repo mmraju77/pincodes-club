@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState, use } from 'react';
 import { supabase } from '../../../lib/supabase';
 
-// Expert Fix: Safely parse URL segments for case-insensitive matching
+// Expert Fix: Safely parse URL segments for exact matching
 const formatFromSlug = (slug) => {
   if (!slug) return '';
   return decodeURIComponent(slug).replace(/-/g, ' ').trim();
@@ -26,7 +26,7 @@ const formatContactNumber = (contact) => {
 };
 
 export default function DynamicIfscPage(props) {
-  // Unwrap Next.js 15 Promise safely using React use hook
+  // Unwrap Next.js 15 Promise safely
   const params = props.params instanceof Promise ? use(props.params) : props.params;
   const slug = params?.slug || [];
 
@@ -46,20 +46,22 @@ export default function DynamicIfscPage(props) {
   const [dataList, setDataList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch data dynamically based on the exact path depth matching URL segments
+  // Fetch data dynamically based on strict path depth matching
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        let q = supabase.from('ifsc_codes').select('*');
+        // EXPERT ARCHITECTURE: Fetching only required columns for faster loading & Using Strict ILIKE without wildcards
+        let q = supabase.from('ifsc_codes').select('bank, state, district, city, centre, branch, ifsc, address, contact, phone, micr');
         
-        if (dbBank) q = q.ilike('bank', `%${dbBank}%`);
-        if (dbState) q = q.ilike('state', `%${dbState}%`);
-        if (dbDistrict) q = q.ilike('district', `%${dbDistrict}%`);
-        if (dbCity) q = q.or(`centre.ilike.%${dbCity}%,city.ilike.%${dbCity}%`);
-        if (dbBranch) q = q.ilike('branch', `%${dbBranch}%`);
+        if (dbBank) q = q.ilike('bank', dbBank);
+        if (dbState) q = q.ilike('state', dbState);
+        if (dbDistrict) q = q.ilike('district', dbDistrict);
+        if (dbCity) q = q.or(`centre.ilike.${dbCity},city.ilike.${dbCity}`);
+        if (dbBranch) q = q.ilike('branch', dbBranch);
 
-        q = q.limit(branchSlug ? 1 : 10000); 
+        // Increased limit to 20,000 to perfectly load massive banks like SBI in major states without missing any districts
+        q = q.limit(branchSlug ? 1 : 20000); 
 
         const { data, error } = await q;
         if (error) throw error;
@@ -75,15 +77,15 @@ export default function DynamicIfscPage(props) {
     }
   }, [dbBank, dbState, dbDistrict, dbCity, dbBranch, bankSlug]);
 
-  // Handle structural routing states based on URL depths
+  // Handle structural routing states based purely on URL depth
   let displayCards = [];
   let isFinalBranchView = false;
   let branchDataToShow = [];
 
   if (dataList.length > 0) {
-    // LEVEL 1: Only Bank exists -> Show States
+    // LEVEL 1: Bank -> Shows States
     if (bankSlug && !stateSlug) {
-      const uniqueStates = Array.from(new Set(dataList.map(d => d.state))).filter(Boolean);
+      const uniqueStates = Array.from(new Set(dataList.map(d => d.state?.trim().toUpperCase()))).filter(Boolean);
       displayCards = uniqueStates.sort().map(s => ({
         name: s,
         icon: '🗺️',
@@ -91,7 +93,7 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${formatToSlug(s)}`
       }));
     } 
-    // LEVEL 2: Bank & State exist -> Show Districts strictly
+    // LEVEL 2: Bank + State -> Shows STRICTLY Districts
     else if (bankSlug && stateSlug && !districtSlug) {
       const uniqueDistricts = Array.from(new Set(dataList.map(d => d.district?.trim().toUpperCase()))).filter(Boolean);
       displayCards = uniqueDistricts.sort().map(d => ({
@@ -101,7 +103,7 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${formatToSlug(d)}`
       }));
     }
-    // LEVEL 3: Bank, State & District exist -> Show Cities strictly
+    // LEVEL 3: Bank + State + District -> Shows Cities
     else if (bankSlug && stateSlug && districtSlug && !citySlug) {
       const uniqueCities = Array.from(new Set(dataList.map(d => (d.centre || d.city)?.trim().toUpperCase()))).filter(Boolean);
       displayCards = uniqueCities.sort().map(c => ({
@@ -111,7 +113,7 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}/${formatToSlug(c)}`
       }));
     }
-    // LEVEL 4: Bank, State, District & City exist -> Show Branch cards
+    // LEVEL 4: Bank + State + District + City -> Shows Branches
     else if (bankSlug && stateSlug && districtSlug && citySlug && !branchSlug) {
       const uniqueBranches = Array.from(new Set(dataList.map(d => d.branch?.trim().toUpperCase()))).filter(Boolean);
       displayCards = uniqueBranches.sort().map(b => ({
@@ -121,7 +123,7 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}/${citySlug}/${formatToSlug(b)}`
       }));
     }
-    // LEVEL 5: Full path resolved -> Show final branch info card
+    // LEVEL 5: Full Path -> Show Branch Card
     else if (bankSlug && stateSlug && districtSlug && citySlug && branchSlug) {
       isFinalBranchView = true;
       branchDataToShow = dataList;
@@ -171,6 +173,7 @@ export default function DynamicIfscPage(props) {
         )}
       </nav>
 
+      {/* Dynamic Header Section */}
       <div className="bg-slate-800/40 p-8 rounded-3xl border border-slate-700/50 shadow-xl">
         <h1 className="text-3xl font-extrabold text-white capitalize mb-2">
           {capitalizeWords(dbBank)}
@@ -195,6 +198,7 @@ export default function DynamicIfscPage(props) {
         </div>
       ) : (
         <>
+          {/* Grid View for Navigation Levels */}
           {!isFinalBranchView && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {displayCards.length > 0 ? displayCards.map((card, i) => (
@@ -211,6 +215,7 @@ export default function DynamicIfscPage(props) {
             </div>
           )}
 
+          {/* Final View: Branch Data Card */}
           {isFinalBranchView && (
             <div className="grid grid-cols-1 gap-6 max-w-4xl mx-auto w-full">
               {branchDataToShow.length > 0 ? branchDataToShow.map((row, index) => {
