@@ -5,7 +5,16 @@ import Link from 'next/link';
 import { useEffect, useState, use } from 'react';
 import { supabase } from '../../../lib/supabase';
 
-// Expert Fix: URL parsing safely
+// Expert Feature: Hardcoded Official Districts to bypass dirty DB data
+const AP_DISTRICTS = [
+  "Alluri Sitharama Raju", "Anakapalli", "Ananthapuramu", "Annamayya", "Bapatla", 
+  "Chittoor", "Dr. B.R. Ambedkar Konaseema", "East Godavari", "Eluru", "Guntur", 
+  "Kakinada", "Krishna", "Kurnool", "Markapuram", "Nandyal", "NTR", "Palnadu", 
+  "Parvathipuram Manyam", "Polavaram", "Prakasam", "Rayalaseema", 
+  "Sri Potti Sriramulu Nellore", "Sri Sathya Sai", "Srikakulam", "Tirupati", 
+  "Visakhapatnam", "Vizianagaram", "West Godavari", "YSR Kadapa"
+];
+
 const formatFromSlug = (slug) => {
   if (!slug) return '';
   return decodeURIComponent(slug).replace(/-/g, ' ').trim();
@@ -44,21 +53,26 @@ export default function DynamicIfscPage(props) {
   const [dataList, setDataList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Forced Data Fetching with Wildcards to bypass Cache & Exact Match failures
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
         let q = supabase.from('ifsc_codes').select('*');
         
-        // EXPERT FIX: Added wildcards (%) back to safely match data even if DB has trailing spaces
         if (dbBank) q = q.ilike('bank', `%${dbBank}%`);
         if (dbState) q = q.ilike('state', `%${dbState}%`);
-        if (dbDistrict) q = q.ilike('district', `%${dbDistrict}%`);
-        if (dbCity) q = q.or(`centre.ilike.%${dbCity}%,city.ilike.%${dbCity}%`);
-        if (dbBranch) q = q.ilike('branch', `%${dbBranch}%`);
+        
+        // When searching DB, check district OR city columns to ensure we catch branches saved with wrong DB columns
+        if (dbDistrict) {
+            q = q.or(`district.ilike.%${dbDistrict}%,city.ilike.%${dbDistrict}%,centre.ilike.%${dbDistrict}%`);
+        }
+        if (dbCity) {
+            q = q.or(`centre.ilike.%${dbCity}%,city.ilike.%${dbCity}%`);
+        }
+        if (dbBranch) {
+            q = q.ilike('branch', `%${dbBranch}%`);
+        }
 
-        // Fetch enough records to group the bad RBI data
         q = q.limit(branchSlug ? 1 : 15000); 
 
         const { data, error } = await q;
@@ -92,9 +106,17 @@ export default function DynamicIfscPage(props) {
       }));
     } 
     
-    // LEVEL 2: Shows Districts (Even if DB has bad data, we group it as Districts)
+    // LEVEL 2: Shows Districts
     else if (bankSlug && stateSlug && !districtSlug) {
-      const uniqueDistricts = Array.from(new Set(dataList.map(d => d.district?.trim().toUpperCase()))).filter(Boolean);
+      let uniqueDistricts = [];
+      
+      // EXPERT OVERRIDE: If the state is Andhra Pradesh, force our clean list
+      if (stateSlug === 'andhra-pradesh') {
+         uniqueDistricts = AP_DISTRICTS;
+      } else {
+         uniqueDistricts = Array.from(new Set(dataList.map(d => d.district?.trim().toUpperCase()))).filter(Boolean);
+      }
+
       displayCards = uniqueDistricts.sort().map(d => ({
         name: d,
         icon: '🏢',
