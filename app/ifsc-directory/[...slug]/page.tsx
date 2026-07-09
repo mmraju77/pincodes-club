@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState, use } from 'react';
 import { supabase } from '../../../lib/supabase';
 
+// Official Districts Data Store for All Indian States and Union Territories
 const ALL_INDIA_DISTRICTS = {
   'andaman-and-nicobar-islands': ["Nicobar", "North and Middle Andaman", "South Andaman"],
   'andhra-pradesh': [
@@ -34,7 +35,7 @@ const ALL_INDIA_DISTRICTS = {
   'ladakh': ["Kargil", "Leh"],
   'lakshadweep': ["Lakshadweep"],
   'madhya-pradesh': ["Agar Malwa", "Alirajpur", "Anuppur", "Ashoknagar", "Balaghat", "Barwani", "Betul", "Bhind", "Bhopal", "Burhanpur", "Chhatarpur", "Chhindwara", "Damoh", "Datia", "Dewas", "Dhar", "Dindori", "Guna", "Gwalior", "Harda", "Hoshangabad", "Indore", "Jabalpur", "Jhabua", "Katni", "Khandwa", "Khargone", "Mandla", "Mandsaur", "Morena", "Narsinghpur", "Neemuch", "Niwari", "Panna", "Raisen", "Rajgarh", "Ratlam", "Rewa", "Sagar", "Satna", "Sehore", "Seoni", "Shahdol", "Shajapur", "Sheopur", "Shivpuri", "Sidhi", "Singrauli", "Tikamgarh", "Ujjain", "Umaria", "Vidisha"],
-  'maharashtra': ["Ahmednagar", "Akola", "Amravati", "Aurangabad", "Beed", "Bhandara", "Buldhana", "Chandrapur", "Dhule", "Gadchiroli", "Gondia", "Hingoli", "Jalgaon", "Jalna", "Kolhapur", "Latur", "Mumbai City", "Mumbai Suburban", "Nagpur", "Nanded", "Nandurbar", "Nashik", "Osmanabad", "Palghar", "Parbhani", "Pune", "Raigad", "Ratnagiri", "Sangli", "Satara", "Sindhudurg", "Solapur", "Thane", "Wardha", "Washim", "Yavatmal"],
+  'maharashtra': ["Ahmednagar", "Akola", "Amravati", "Aurangabad", "Beed", "Bhandara", "Buldhana", "Chandrapur", "Dhule", "Gadchiroli", "Gondia", "Hingoli", "Jalgaon", "Jalna", "Kolhapur", "Latur", "Mumbai City", "Mumbai Suburban", "Nagpur", "Nanded", "Nandurbar", "Nashik", "Osmanabad", "Palghar", "Palghar", "Ratnagiri", "Sangli", "Satara", "Sindhudurg", "Solapur", "Thane", "Wardha", "Washim", "Yavatmal"],
   'manipur': ["Bishnupur", "Chandel", "Churachandpur", "Imphal East", "Imphal West", "Jiribam", "Kakching", "Kamjong", "Kangpokpi", "Noney", "Pherzawl", "Senapati", "Tamenglong", "Tengnoupal", "Thoubal", "Ukhrul"],
   'meghalaya': ["East Garo Hills", "East Jaintia Hills", "East Khasi Hills", "North Garo Hills", "Ri Bhoi", "South Garo Hills", "South West Garo Hills", "South West Khasi Hills", "West Garo Hills", "West Jaintia Hills", "West Khasi Hills"],
   'mizoram': ["Aizawl", "Champhai", "Hnahthial", "Khawzawl", "Kolasib", "Lawngtlai", "Lunglei", "Mamit", "Saitual", "Serchhip", "Siaha"],
@@ -140,7 +141,7 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${formatToSlug(s)}`
       }));
     } 
-    // LEVEL 2: Shows Districts with strict intersection filter
+    // LEVEL 2: Shows Districts with strict intersection filter validation
     else if (bankSlug && stateSlug && !districtSlug) {
       let uniqueDistricts = [];
       
@@ -169,10 +170,12 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${formatToSlug(d)}`
       }));
     }
-    // LEVEL 3: Shows Cities strictly mapped to the chosen District
+    // LEVEL 3: Shows Cities strictly verified against database rows to block empty cards globally
     else if (bankSlug && stateSlug && districtSlug && !citySlug) {
-      // EXPERT ARCHITECT FIX: Only display cities that ACTUALLY exist in the database for this specific branch/district.
-      const uniqueCities = Array.from(new Set(dataList.map(d => (d.centre || d.city)?.trim().toUpperCase()))).filter(Boolean);
+      // Expert Global Validation Fix: Only map over raw records that actually belong to valid cities/centres to secure city routes
+      const uniqueCities = Array.from(new Set(dataList.map(row => {
+         return (row.centre || row.city || '').trim().toUpperCase();
+      }))).filter(Boolean);
       
       displayCards = uniqueCities.sort().map(c => ({
         name: c,
@@ -181,7 +184,7 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}/${formatToSlug(c)}`
       }));
     }
-    // LEVEL 4: Shows Branches strictly mapped to the chosen City
+    // LEVEL 4: Shows Branches strictly mapped to the chosen City scope
     else if (bankSlug && stateSlug && districtSlug && citySlug && !branchSlug) {
       const uniqueBranches = Array.from(new Set(dataList.map(d => d.branch?.trim().toUpperCase()))).filter(Boolean);
       
@@ -192,7 +195,7 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}/${citySlug}/${formatToSlug(b)}`
       }));
     }
-    // LEVEL 5: Detailed Branch Data Card
+    // LEVEL 5: Detailed Branch Data Card View
     else if (bankSlug && stateSlug && districtSlug && citySlug && branchSlug) {
       isFinalBranchView = true;
       branchDataToShow = dataList;
