@@ -35,7 +35,7 @@ const ALL_INDIA_DISTRICTS = {
   'ladakh': ["Kargil", "Leh"],
   'lakshadweep': ["Lakshadweep"],
   'madhya-pradesh': ["Agar Malwa", "Alirajpur", "Anuppur", "Ashoknagar", "Balaghat", "Barwani", "Betul", "Bhind", "Bhopal", "Burhanpur", "Chhatarpur", "Chhindwara", "Damoh", "Datia", "Dewas", "Dhar", "Dindori", "Guna", "Gwalior", "Harda", "Hoshangabad", "Indore", "Jabalpur", "Jhabua", "Katni", "Khandwa", "Khargone", "Mandla", "Mandsaur", "Morena", "Narsinghpur", "Neemuch", "Niwari", "Panna", "Raisen", "Rajgarh", "Ratlam", "Rewa", "Sagar", "Satna", "Sehore", "Seoni", "Shahdol", "Shajapur", "Sheopur", "Shivpuri", "Sidhi", "Singrauli", "Tikamgarh", "Ujjain", "Umaria", "Vidisha"],
-  'maharashtra': ["Ahmednagar", "Akola", "Amravati", "Aurangabad", "Beed", "Bhandara", "Buldhana", "Chandrapur", "Dhule", "Gadchiroli", "Gondia", "Hingoli", "Jalgaon", "Jalna", "Kolhapur", "Latur", "Mumbai City", "Mumbai Suburban", "Nagpur", "Nanded", "Nandurbar", "Nashik", "Osmanabad", "Palghar", "Palghar", "Ratnagiri", "Sangli", "Satara", "Sindhudurg", "Solapur", "Thane", "Wardha", "Washim", "Yavatmal"],
+  'maharashtra': ["Ahmednagar", "Akola", "Amravati", "Aurangabad", "Beed", "Bhandara", "Buldhana", "Chandrapur", "Dhule", "Gadchiroli", "Gondia", "Hingoli", "Jalgaon", "Jalna", "Kolhapur", "Latur", "Mumbai City", "Mumbai Suburban", "Nagpur", "Nanded", "Nandurbar", "Nashik", "Osmanabad", "Palghar", "Parbhani", "Pune", "Raigad", "Ratnagiri", "Sangli", "Satara", "Sindhudurg", "Solapur", "Thane", "Wardha", "Washim", "Yavatmal"],
   'manipur': ["Bishnupur", "Chandel", "Churachandpur", "Imphal East", "Imphal West", "Jiribam", "Kakching", "Kamjong", "Kangpokpi", "Noney", "Pherzawl", "Senapati", "Tamenglong", "Tengnoupal", "Thoubal", "Ukhrul"],
   'meghalaya': ["East Garo Hills", "East Jaintia Hills", "East Khasi Hills", "North Garo Hills", "Ri Bhoi", "South Garo Hills", "South West Garo Hills", "South West Khasi Hills", "West Garo Hills", "West Jaintia Hills", "West Khasi Hills"],
   'mizoram': ["Aizawl", "Champhai", "Hnahthial", "Khawzawl", "Kolasib", "Lawngtlai", "Lunglei", "Mamit", "Saitual", "Serchhip", "Siaha"],
@@ -97,17 +97,26 @@ export default function DynamicIfscPage(props) {
       try {
         let q = supabase.from('ifsc_codes').select('*');
         
-        if (dbBank) q = q.ilike('bank', `%${dbBank}%`);
-        if (dbState) q = q.ilike('state', `%${dbState}%`);
+        // EXPERT FIX: Removing any malicious quotes to prevent syntax errors, then safely quoting them in the OR string
+        const safeBank = dbBank ? dbBank.replace(/"/g, '') : '';
+        const safeState = dbState ? dbState.replace(/"/g, '') : '';
+        const safeDistrict = dbDistrict ? dbDistrict.replace(/"/g, '') : '';
+        const safeCity = dbCity ? dbCity.replace(/"/g, '') : '';
+        const safeBranch = dbBranch ? dbBranch.replace(/"/g, '') : '';
+
+        if (safeBank) q = q.ilike('bank', `%${safeBank}%`);
+        if (safeState) q = q.ilike('state', `%${safeState}%`);
         
-        if (dbDistrict) {
-            q = q.or(`district.ilike.%${dbDistrict}%,city.ilike.%${dbDistrict}%,centre.ilike.%${dbDistrict}%`);
+        if (safeDistrict) {
+            // CRITICAL FIX: Wrapped %value% in double quotes so Supabase handles spaces (e.g., "New Delhi") properly
+            q = q.or(`district.ilike."%${safeDistrict}%",city.ilike."%${safeDistrict}%",centre.ilike."%${safeDistrict}%"`);
         }
-        if (dbCity) {
-            q = q.or(`centre.ilike.%${dbCity}%,city.ilike.%${dbCity}%`);
+        if (safeCity) {
+            // CRITICAL FIX: Wrapped %value% in double quotes here as well
+            q = q.or(`centre.ilike."%${safeCity}%",city.ilike."%${safeCity}%"`);
         }
-        if (dbBranch) {
-            q = q.ilike('branch', `%${dbBranch}%`);
+        if (safeBranch) {
+            q = q.ilike('branch', `%${safeBranch}%`);
         }
 
         q = q.limit(branchSlug ? 1 : 15000); 
@@ -141,7 +150,7 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${formatToSlug(s)}`
       }));
     } 
-    // LEVEL 2: Shows Districts with strict intersection filter validation
+    // LEVEL 2: Shows Districts with strict intersection filter
     else if (bankSlug && stateSlug && !districtSlug) {
       let uniqueDistricts = [];
       
@@ -170,12 +179,9 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${formatToSlug(d)}`
       }));
     }
-    // LEVEL 3: Shows Cities strictly verified against database rows to block empty cards globally
+    // LEVEL 3: Shows Cities strictly mapped to the chosen District
     else if (bankSlug && stateSlug && districtSlug && !citySlug) {
-      // Expert Global Validation Fix: Only map over raw records that actually belong to valid cities/centres to secure city routes
-      const uniqueCities = Array.from(new Set(dataList.map(row => {
-         return (row.centre || row.city || '').trim().toUpperCase();
-      }))).filter(Boolean);
+      const uniqueCities = Array.from(new Set(dataList.map(d => (d.centre || d.city)?.trim().toUpperCase()))).filter(Boolean);
       
       displayCards = uniqueCities.sort().map(c => ({
         name: c,
@@ -184,7 +190,7 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}/${formatToSlug(c)}`
       }));
     }
-    // LEVEL 4: Shows Branches strictly mapped to the chosen City scope
+    // LEVEL 4: Shows Branches strictly mapped to the chosen City
     else if (bankSlug && stateSlug && districtSlug && citySlug && !branchSlug) {
       const uniqueBranches = Array.from(new Set(dataList.map(d => d.branch?.trim().toUpperCase()))).filter(Boolean);
       
@@ -195,7 +201,7 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}/${citySlug}/${formatToSlug(b)}`
       }));
     }
-    // LEVEL 5: Detailed Branch Data Card View
+    // LEVEL 5: Detailed Branch Data Card
     else if (bankSlug && stateSlug && districtSlug && citySlug && branchSlug) {
       isFinalBranchView = true;
       branchDataToShow = dataList;
