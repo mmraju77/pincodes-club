@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState, use } from 'react';
 import { supabase } from '../../../lib/supabase';
 
-// Expert Fix: Safely parse URL segments for exact matching
+// Expert Fix: URL parsing safely
 const formatFromSlug = (slug) => {
   if (!slug) return '';
   return decodeURIComponent(slug).replace(/-/g, ' ').trim();
@@ -26,11 +26,9 @@ const formatContactNumber = (contact) => {
 };
 
 export default function DynamicIfscPage(props) {
-  // Unwrap Next.js 15 Promise safely
   const params = props.params instanceof Promise ? use(props.params) : props.params;
   const slug = params?.slug || [];
 
-  // Strict Hierarchy Definition: [Bank] / [State] / [District] / [City] / [Branch]
   const bankSlug = slug[0] || null;
   const stateSlug = slug[1] || null;
   const districtSlug = slug[2] || null;
@@ -46,22 +44,22 @@ export default function DynamicIfscPage(props) {
   const [dataList, setDataList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch data dynamically based on strict path depth matching
+  // Forced Data Fetching with Wildcards to bypass Cache & Exact Match failures
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // EXPERT ARCHITECTURE: Fetching only required columns for faster loading & Using Strict ILIKE without wildcards
-        let q = supabase.from('ifsc_codes').select('bank, state, district, city, centre, branch, ifsc, address, contact, phone, micr');
+        let q = supabase.from('ifsc_codes').select('*');
         
-        if (dbBank) q = q.ilike('bank', dbBank);
-        if (dbState) q = q.ilike('state', dbState);
-        if (dbDistrict) q = q.ilike('district', dbDistrict);
-        if (dbCity) q = q.or(`centre.ilike.${dbCity},city.ilike.${dbCity}`);
-        if (dbBranch) q = q.ilike('branch', dbBranch);
+        // EXPERT FIX: Added wildcards (%) back to safely match data even if DB has trailing spaces
+        if (dbBank) q = q.ilike('bank', `%${dbBank}%`);
+        if (dbState) q = q.ilike('state', `%${dbState}%`);
+        if (dbDistrict) q = q.ilike('district', `%${dbDistrict}%`);
+        if (dbCity) q = q.or(`centre.ilike.%${dbCity}%,city.ilike.%${dbCity}%`);
+        if (dbBranch) q = q.ilike('branch', `%${dbBranch}%`);
 
-        // Increased limit to 20,000 to perfectly load massive banks like SBI in major states without missing any districts
-        q = q.limit(branchSlug ? 1 : 20000); 
+        // Fetch enough records to group the bad RBI data
+        q = q.limit(branchSlug ? 1 : 15000); 
 
         const { data, error } = await q;
         if (error) throw error;
@@ -77,13 +75,13 @@ export default function DynamicIfscPage(props) {
     }
   }, [dbBank, dbState, dbDistrict, dbCity, dbBranch, bankSlug]);
 
-  // Handle structural routing states based purely on URL depth
   let displayCards = [];
   let isFinalBranchView = false;
   let branchDataToShow = [];
 
   if (dataList.length > 0) {
-    // LEVEL 1: Bank -> Shows States
+    
+    // LEVEL 1: Shows States
     if (bankSlug && !stateSlug) {
       const uniqueStates = Array.from(new Set(dataList.map(d => d.state?.trim().toUpperCase()))).filter(Boolean);
       displayCards = uniqueStates.sort().map(s => ({
@@ -93,7 +91,8 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${formatToSlug(s)}`
       }));
     } 
-    // LEVEL 2: Bank + State -> Shows STRICTLY Districts
+    
+    // LEVEL 2: Shows Districts (Even if DB has bad data, we group it as Districts)
     else if (bankSlug && stateSlug && !districtSlug) {
       const uniqueDistricts = Array.from(new Set(dataList.map(d => d.district?.trim().toUpperCase()))).filter(Boolean);
       displayCards = uniqueDistricts.sort().map(d => ({
@@ -103,7 +102,8 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${formatToSlug(d)}`
       }));
     }
-    // LEVEL 3: Bank + State + District -> Shows Cities
+    
+    // LEVEL 3: Shows Cities
     else if (bankSlug && stateSlug && districtSlug && !citySlug) {
       const uniqueCities = Array.from(new Set(dataList.map(d => (d.centre || d.city)?.trim().toUpperCase()))).filter(Boolean);
       displayCards = uniqueCities.sort().map(c => ({
@@ -113,7 +113,8 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}/${formatToSlug(c)}`
       }));
     }
-    // LEVEL 4: Bank + State + District + City -> Shows Branches
+    
+    // LEVEL 4: Shows Branches
     else if (bankSlug && stateSlug && districtSlug && citySlug && !branchSlug) {
       const uniqueBranches = Array.from(new Set(dataList.map(d => d.branch?.trim().toUpperCase()))).filter(Boolean);
       displayCards = uniqueBranches.sort().map(b => ({
@@ -123,7 +124,8 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}/${citySlug}/${formatToSlug(b)}`
       }));
     }
-    // LEVEL 5: Full Path -> Show Branch Card
+    
+    // LEVEL 5: Branch Card
     else if (bankSlug && stateSlug && districtSlug && citySlug && branchSlug) {
       isFinalBranchView = true;
       branchDataToShow = dataList;
@@ -138,7 +140,6 @@ export default function DynamicIfscPage(props) {
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 space-y-8 flex flex-col min-h-screen">
       
-      {/* Dynamic SEO Path Breadcrumbs */}
       <nav className="flex flex-wrap text-sm font-medium gap-2 bg-slate-900/80 p-4 rounded-xl border border-slate-700 shadow-md">
         <Link href="/ifsc-directory" className="text-blue-400 hover:text-white transition-colors">BANKS</Link>
         {bankSlug && (
@@ -173,7 +174,6 @@ export default function DynamicIfscPage(props) {
         )}
       </nav>
 
-      {/* Dynamic Header Section */}
       <div className="bg-slate-800/40 p-8 rounded-3xl border border-slate-700/50 shadow-xl">
         <h1 className="text-3xl font-extrabold text-white capitalize mb-2">
           {capitalizeWords(dbBank)}
@@ -198,7 +198,6 @@ export default function DynamicIfscPage(props) {
         </div>
       ) : (
         <>
-          {/* Grid View for Navigation Levels */}
           {!isFinalBranchView && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {displayCards.length > 0 ? displayCards.map((card, i) => (
@@ -210,12 +209,11 @@ export default function DynamicIfscPage(props) {
                    <span className="text-slate-500 text-xs mt-3 group-hover:text-blue-400 transition-colors">{card.label}</span>
                 </Link>
               )) : (
-                <p className="text-slate-400 col-span-full text-center py-12">No regional directory items found under this scope.</p>
+                <p className="text-slate-400 col-span-full text-center py-12">No regional directory items found under this scope. The imported DB records might be empty for this path.</p>
               )}
             </div>
           )}
 
-          {/* Final View: Branch Data Card */}
           {isFinalBranchView && (
             <div className="grid grid-cols-1 gap-6 max-w-4xl mx-auto w-full">
               {branchDataToShow.length > 0 ? branchDataToShow.map((row, index) => {
