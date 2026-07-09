@@ -96,7 +96,6 @@ export default function DynamicIfscPage(props) {
       try {
         let q = supabase.from('ifsc_codes').select('*');
         
-        // Ensure we fetch data strictly matching the requested parameters to prevent empty/orphan records
         if (dbBank) q = q.ilike('bank', `%${dbBank}%`);
         if (dbState) q = q.ilike('state', `%${dbState}%`);
         
@@ -172,8 +171,7 @@ export default function DynamicIfscPage(props) {
     }
     // LEVEL 3: Shows Cities strictly mapped to the chosen District
     else if (bankSlug && stateSlug && districtSlug && !citySlug) {
-      // EXPERT ARCHITECT FIX: Only display cities that ACTUALLY exist in the database for this specific branch/district. 
-      // Removed the blind array construction to prevent rendering empty cards.
+      // EXPERT ARCHITECT FIX: Only display cities that ACTUALLY exist in the database for this specific branch/district.
       const uniqueCities = Array.from(new Set(dataList.map(d => (d.centre || d.city)?.trim().toUpperCase()))).filter(Boolean);
       
       displayCards = uniqueCities.sort().map(c => ({
