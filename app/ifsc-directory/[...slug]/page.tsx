@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState, use } from 'react';
 import { supabase } from '../../../lib/supabase';
 
-// Expert Feature: Hardcoded Official Districts for ALL Indian States to bypass dirty DB data
+// Official Districts Data Store for All Indian States and UTs
 const ALL_INDIA_DISTRICTS = {
   'andaman-and-nicobar-islands': ["Nicobar", "North and Middle Andaman", "South Andaman"],
   'andhra-pradesh': [
@@ -20,7 +20,7 @@ const ALL_INDIA_DISTRICTS = {
   'assam': ["Baksa", "Barpeta", "Biswanath", "Bongaigaon", "Cachar", "Charaideo", "Chirang", "Darrang", "Dhemaji", "Dhubri", "Dibrugarh", "Dima Hasao", "Goalpara", "Golaghat", "Hailakandi", "Hojai", "Jorhat", "Kamrup", "Kamrup Metropolitan", "Karbi Anglong", "Karimganj", "Kokrajhar", "Lakhimpur", "Majuli", "Morigaon", "Nagaon", "Nalbari", "Sivasagar", "Sonitpur", "South Salmara-Mankachar", "Tinsukia", "Udalguri", "West Karbi Anglong"],
   'bihar': ["Araria", "Arwal", "Aurangabad", "Banka", "Begusarai", "Bhagalpur", "Bhojpur", "Buxar", "Darbhanga", "East Champaran", "Gaya", "Gopalganj", "Jamui", "Jehanabad", "Kaimur", "Katihar", "Khagaria", "Kishanganj", "Lakhisarai", "Madhepura", "Madhubani", "Munger", "Muzaffarpur", "Nalanda", "Nawada", "Patna", "Purnia", "Rohtas", "Saharsa", "Samastipur", "Saran", "Sheikhpura", "Sheohar", "Sitamarhi", "Siwan", "Supaul", "Vaishali", "West Champaran"],
   'chandigarh': ["Chandigarh"],
-  'chhattisgarh': ["Balod", "Baloda Bazar", "Balrampur", "Bastar", "Bemetara", "Bijapur", "Bilaspur", "Dantewada", "Dhamtari", "Durg", "Gariaband", "Janjgir-Champa", "Jashpur", "Kabirdham", "Kanker", "Kondagaon", "Korba", "Koriya", "Mahasamund", "Mungeli", "Narayanpur", "Raigarh", "Raipur", "Rajnandgaon", "Sukma", "Surajpur", "Surguja"],
+  'chhattisgarh': ["Balod", "Baloda Bazar", "Balrampur", "Bastar", "Bemetara", "Bijapur", "Bilaspur", "Dantewada", "Dhamtari", "Durg", "Gariaband", "Janjgir-Champa", "Jashpur", "Kanker", "Kondagaon", "Korba", "Koriya", "Mahasamund", "Mungeli", "Narayanpur", "Raigarh", "Raipur", "Rajnandgaon", "Sukma", "Surajpur", "Surguja"],
   'dadra-and-nagar-haveli': ["Dadra", "Nagar Haveli"],
   'daman-and-diu': ["Daman", "Diu"],
   'delhi': ["Central Delhi", "East Delhi", "New Delhi", "North Delhi", "North East Delhi", "North West Delhi", "Shahdara", "South Delhi", "South East Delhi", "South West Delhi", "West Delhi"],
@@ -35,11 +35,11 @@ const ALL_INDIA_DISTRICTS = {
   'ladakh': ["Kargil", "Leh"],
   'lakshadweep': ["Lakshadweep"],
   'madhya-pradesh': ["Agar Malwa", "Alirajpur", "Anuppur", "Ashoknagar", "Balaghat", "Barwani", "Betul", "Bhind", "Bhopal", "Burhanpur", "Chhatarpur", "Chhindwara", "Damoh", "Datia", "Dewas", "Dhar", "Dindori", "Guna", "Gwalior", "Harda", "Hoshangabad", "Indore", "Jabalpur", "Jhabua", "Katni", "Khandwa", "Khargone", "Mandla", "Mandsaur", "Morena", "Narsinghpur", "Neemuch", "Niwari", "Panna", "Raisen", "Rajgarh", "Ratlam", "Rewa", "Sagar", "Satna", "Sehore", "Seoni", "Shahdol", "Shajapur", "Sheopur", "Shivpuri", "Sidhi", "Singrauli", "Tikamgarh", "Ujjain", "Umaria", "Vidisha"],
-  'maharashtra': ["Ahmednagar", "Akola", "Amravati", "Aurangabad", "Beed", "Bhandara", "Buldhana", "Chandrapur", "Dhule", "Gadchiroli", "Gondia", "Hingoli", "Jalgaon", "Jalna", "Kolhapur", "Latur", "Mumbai City", "Mumbai Suburban", "Nagpur", "Nanded", "Nandurbar", "Nashik", "Osmanabad", "Palghar", "Parbhani", "Pune", "Raigad", "Raigad", "Ratnagiri", "Sangli", "Satara", "Sindhudurg", "Solapur", "Thane", "Wardha", "Washim", "Yavatmal"],
+  'maharashtra': ["Ahmednagar", "Akola", "Amravati", "Aurangabad", "Beed", "Bhandara", "Buldhana", "Chandrapur", "Dhule", "Gadchiroli", "Gondia", "Hingoli", "Jalgaon", "Jalna", "Kolhapur", "Latur", "Mumbai City", "Mumbai Suburban", "Nagpur", "Nanded", "Nandurbar", "Nashik", "Osmanabad", "Palghar", "Parbhani", "Pune", "Raigad", "Ratnagiri", "Sangli", "Satara", "Sindhudurg", "Solapur", "Thane", "Wardha", "Washim", "Yavatmal"],
   'manipur': ["Bishnupur", "Chandel", "Churachandpur", "Imphal East", "Imphal West", "Jiribam", "Kakching", "Kamjong", "Kangpokpi", "Noney", "Pherzawl", "Senapati", "Tamenglong", "Tengnoupal", "Thoubal", "Ukhrul"],
   'meghalaya': ["East Garo Hills", "East Jaintia Hills", "East Khasi Hills", "North Garo Hills", "Ri Bhoi", "South Garo Hills", "South West Garo Hills", "South West Khasi Hills", "West Garo Hills", "West Jaintia Hills", "West Khasi Hills"],
   'mizoram': ["Aizawl", "Champhai", "Hnahthial", "Khawzawl", "Kolasib", "Lawngtlai", "Lunglei", "Mamit", "Saitual", "Serchhip", "Siaha"],
-  'nagaland': ["Chumukedima", "Dimapur", "Kiphire", "Kohima", "Longleng", "Mokokchung", "Mon", "Niuland", "Noklak", "Peren", "Phek", "Phek", "Tuensang", "Wokha", "Zunheboto"],
+  'nagaland': ["Chumukedima", "Dimapur", "Kiphire", "Kohima", "Longleng", "Mokokchung", "Mon", "Niuland", "Noklak", "Peren", "Phek", "Tuensang", "Wokha", "Zunheboto"],
   'odisha': ["Angul", "Balangir", "Balasore", "Bargarh", "Bhadrak", "Boudh", "Cuttack", "Deogarh", "Dhenkanal", "Gajapati", "Ganjam", "Jagatsinghpur", "Jajpur", "Jharsuguda", "Kalahandi", "Kandhamal", "Kendrapara", "Kendujhar", "Khordha", "Koraput", "Malkangiri", "Mayurbhanj", "Nabarangpur", "Nayagarh", "Nuapada", "Puri", "Rayagada", "Sambalpur", "Subarnapur", "Sundargarh"],
   'puducherry': ["Karaikal", "Mahe", "Puducherry", "Yanam"],
   'punjab': ["Amritsar", "Barnala", "Bathinda", "Faridkot", "Fatehgarh Sahib", "Fazilka", "Ferozepur", "Gurdaspur", "Hoshiarpur", "Jalandhar", "Kapurthala", "Ludhiana", "Mansa", "Moga", "Muktsar", "Nawanshahr", "Pathankot", "Patiala", "Rupnagar", "Sangrur", "SAS Nagar", "Tarn Taran"],
@@ -143,15 +143,32 @@ export default function DynamicIfscPage(props) {
       }));
     } 
     
-    // LEVEL 2: Shows Districts
+    // LEVEL 2: Shows Districts with Intersection Filter
     else if (bankSlug && stateSlug && !districtSlug) {
       let uniqueDistricts = [];
       
-      // EXPERT OVERRIDE: Check if the state exists in our ALL_INDIA_DISTRICTS master object
       if (ALL_INDIA_DISTRICTS[stateSlug]) {
-         uniqueDistricts = ALL_INDIA_DISTRICTS[stateSlug];
+         // EXPERT ARCHITECT FIX: Only keep an official district if it actually contains active branches in the fetched dataList
+         uniqueDistricts = ALL_INDIA_DISTRICTS[stateSlug].filter(officialDist => {
+            const normalizedOfficial = officialDist.toLowerCase().replace(/[^a-z0-9]/g, '');
+            
+            return dataList.some(row => {
+               const rowDist = (row.district || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+               const rowCity = (row.city || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+               const rowCentre = (row.centre || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+               
+               return rowDist.includes(normalizedOfficial) || 
+                      normalizedOfficial.includes(rowDist) ||
+                      rowCity.includes(normalizedOfficial) ||
+                      rowCentre.includes(normalizedOfficial);
+            });
+         });
+         
+         // Fallback if database records are completely distorted and matched nothing
+         if (uniqueDistricts.length === 0) {
+            uniqueDistricts = Array.from(new Set(dataList.map(d => d.district?.trim().toUpperCase()))).filter(Boolean);
+         }
       } else {
-         // Fallback to database logic if state is somehow missing
          uniqueDistricts = Array.from(new Set(dataList.map(d => d.district?.trim().toUpperCase()))).filter(Boolean);
       }
 
@@ -269,7 +286,7 @@ export default function DynamicIfscPage(props) {
                    <span className="text-slate-500 text-xs mt-3 group-hover:text-blue-400 transition-colors">{card.label}</span>
                 </Link>
               )) : (
-                <p className="text-slate-400 col-span-full text-center py-12">No regional directory items found under this scope. The imported DB records might be empty for this path.</p>
+                <p className="text-slate-400 col-span-full text-center py-12">No regional directory items found under this scope.</p>
               )}
             </div>
           )}
