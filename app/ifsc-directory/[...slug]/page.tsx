@@ -5,9 +5,10 @@ import Link from 'next/link';
 import { useEffect, useState, use } from 'react';
 import { supabase } from '../../../lib/supabase';
 
+// Expert Fix: Removed toUpperCase() so ILIKE can handle case-insensitivity naturally
 const formatFromSlug = (slug) => {
   if (!slug) return '';
-  return decodeURIComponent(slug).replace(/-/g, ' ').toUpperCase().trim();
+  return decodeURIComponent(slug).replace(/-/g, ' ').trim();
 };
 
 const formatToSlug = (text) => {
@@ -25,7 +26,6 @@ const formatContactNumber = (contact) => {
 };
 
 export default function DynamicIfscPage(props) {
-  // Safely unwrap params for both Next.js 14 and 15 without TypeScript complaining
   const params = props.params instanceof Promise ? use(props.params) : props.params;
   const slug = params?.slug || [];
 
@@ -35,11 +35,11 @@ export default function DynamicIfscPage(props) {
   const citySlug = slug[3] || null;
   const branchSlug = slug[4] || null;
 
-  const dbBank = formatFromSlug(bankSlug || '');
-  const dbState = formatFromSlug(stateSlug || '');
-  const dbDistrict = formatFromSlug(districtSlug || '');
-  const dbCity = formatFromSlug(citySlug || '');
-  const dbBranch = formatFromSlug(branchSlug || '');
+  const dbBank = formatFromSlug(bankSlug);
+  const dbState = formatFromSlug(stateSlug);
+  const dbDistrict = formatFromSlug(districtSlug);
+  const dbCity = formatFromSlug(citySlug);
+  const dbBranch = formatFromSlug(branchSlug);
 
   const [dataList, setDataList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,13 +50,15 @@ export default function DynamicIfscPage(props) {
       try {
         let q = supabase.from('ifsc_codes').select('*');
         
+        // EXPERT FIX: Used ILIKE everywhere. This ensures no matter how data is typed in DB (upper/lower case), it gets matched!
         if (dbBank) q = q.ilike('bank', `%${dbBank}%`);
-        if (dbState) q = q.eq('state', dbState);
-        if (dbDistrict) q = q.eq('district', dbDistrict);
-        if (dbCity) q = q.or(`centre.eq.${dbCity},city.eq.${dbCity}`);
+        if (dbState) q = q.ilike('state', `%${dbState}%`);
+        if (dbDistrict) q = q.ilike('district', `%${dbDistrict}%`);
+        if (dbCity) q = q.or(`centre.ilike.%${dbCity}%,city.ilike.%${dbCity}%`);
         if (dbBranch) q = q.ilike('branch', `%${dbBranch}%`);
 
-        q = q.limit(branchSlug ? 1 : 3500); 
+        // Increased limit to safely accommodate large banks like SBI in major states
+        q = q.limit(branchSlug ? 1 : 5000); 
 
         const { data, error } = await q;
         if (error) throw error;
@@ -150,11 +152,11 @@ export default function DynamicIfscPage(props) {
 
       <div className="bg-slate-800/40 p-8 rounded-3xl border border-slate-700/50 shadow-xl">
         <h1 className="text-3xl font-extrabold text-white capitalize mb-2">
-          {dbBank.toLowerCase()}
-          {dbState && ` ➔ ${dbState.toLowerCase()}`}
-          {dbDistrict && ` ➔ ${dbDistrict.toLowerCase()} District`}
-          {dbCity && ` ➔ ${dbCity.toLowerCase()}`}
-          {dbBranch && ` ➔ ${dbBranch.toLowerCase()}`}
+          {dbBank}
+          {dbState && ` ➔ ${dbState}`}
+          {dbDistrict && ` ➔ ${dbDistrict} District`}
+          {dbCity && ` ➔ ${dbCity}`}
+          {dbBranch && ` ➔ ${dbBranch}`}
         </h1>
         <p className="text-slate-400 text-sm font-light">
           {!stateSlug && "Select a State to view available districts."}
