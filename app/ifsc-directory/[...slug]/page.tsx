@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState, use } from 'react';
 import { supabase } from '../../../lib/supabase';
 
-// Official Districts Data Store for All Indian States and UTs
+// Official Districts Data Store for All Indian States and Union Territories
 const ALL_INDIA_DISTRICTS = {
   'andaman-and-nicobar-islands': ["Nicobar", "North and Middle Andaman", "South Andaman"],
   'andhra-pradesh': [
@@ -17,7 +17,7 @@ const ALL_INDIA_DISTRICTS = {
     "Visakhapatnam", "Vizianagaram", "West Godavari", "YSR Kadapa"
   ],
   'arunachal-pradesh': ["Anjaw", "Changlang", "Dibang Valley", "East Kameng", "East Siang", "Itanagar Capital Complex", "Kamle", "Kra Daadi", "Kurung Kumey", "Lepa Rada", "Lohit", "Longding", "Lower Dibang Valley", "Lower Siang", "Lower Subansiri", "Namsai", "Pakke Kessang", "Papum Pare", "Shi Yomi", "Siang", "Tawang", "Tirap", "Upper Siang", "Upper Subansiri", "West Kameng", "West Siang"],
-  'assam': ["Baksa", "Barpeta", "Biswanath", "Bongaigaon", "Cachar", "Charaideo", "Chirang", "Darrang", "Dhemaji", "Dhubri", "Dibrugarh", "Dima Hasao", "Goalpara", "Golaghat", "Hailakandi", "Hojai", "Jorhat", "Kamrup", "Kamrup Metropolitan", "Karbi Anglong", "Karimganj", "Kokrajhar", "Lakhimpur", "Majuli", "Morigaon", "Nagaon", "Nalbari", "Sivasagar", "Sonitpur", "South Salmara-Mankachar", "Tinsukia", "Udalguri", "West Karbi Anglong"],
+  'assign': ["Baksa", "Barpeta", "Biswanath", "Bongaigaon", "Cachar", "Charaideo", "Chirang", "Darrang", "Dhemaji", "Dhubri", "Dibrugarh", "Dima Hasao", "Goalpara", "Golaghat", "Hailakandi", "Hojai", "Jorhat", "Kamrup", "Kamrup Metropolitan", "Karbi Anglong", "Karimganj", "Kokrajhar", "Lakhimpur", "Majuli", "Morigaon", "Nagaon", "Nalbari", "Sivasagar", "Sonitpur", "South Salmara-Mankachar", "Tinsukia", "Udalguri", "West Karbi Anglong"],
   'bihar': ["Araria", "Arwal", "Aurangabad", "Banka", "Begusarai", "Bhagalpur", "Bhojpur", "Buxar", "Darbhanga", "East Champaran", "Gaya", "Gopalganj", "Jamui", "Jehanabad", "Kaimur", "Katihar", "Khagaria", "Kishanganj", "Lakhisarai", "Madhepura", "Madhubani", "Munger", "Muzaffarpur", "Nalanda", "Nawada", "Patna", "Purnia", "Rohtas", "Saharsa", "Samastipur", "Saran", "Sheikhpura", "Sheohar", "Sitamarhi", "Siwan", "Supaul", "Vaishali", "West Champaran"],
   'chandigarh': ["Chandigarh"],
   'chhattisgarh': ["Balod", "Baloda Bazar", "Balrampur", "Bastar", "Bemetara", "Bijapur", "Bilaspur", "Dantewada", "Dhamtari", "Durg", "Gariaband", "Janjgir-Champa", "Jashpur", "Kanker", "Kondagaon", "Korba", "Koriya", "Mahasamund", "Mungeli", "Narayanpur", "Raigarh", "Raipur", "Rajnandgaon", "Sukma", "Surajpur", "Surguja"],
@@ -131,8 +131,7 @@ export default function DynamicIfscPage(props) {
   let branchDataToShow = [];
 
   if (dataList.length > 0) {
-    
-    // LEVEL 1: Shows States
+    // LEVEL 1: Bank level -> Shows States
     if (bankSlug && !stateSlug) {
       const uniqueStates = Array.from(new Set(dataList.map(d => d.state?.trim().toUpperCase()))).filter(Boolean);
       displayCards = uniqueStates.sort().map(s => ({
@@ -142,13 +141,12 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${formatToSlug(s)}`
       }));
     } 
-    
-    // LEVEL 2: Shows Districts with Intersection Filter
+    // LEVEL 2: State level -> Shows Districts dynamically with advanced intersection cleanup
     else if (bankSlug && stateSlug && !districtSlug) {
       let uniqueDistricts = [];
       
       if (ALL_INDIA_DISTRICTS[stateSlug]) {
-         // EXPERT ARCHITECT FIX: Only keep an official district if it actually contains active branches in the fetched dataList
+         // Smart Filter Intersection: Only display the official district card if it contains active branches for the chosen bank
          uniqueDistricts = ALL_INDIA_DISTRICTS[stateSlug].filter(officialDist => {
             const normalizedOfficial = officialDist.toLowerCase().replace(/[^a-z0-9]/g, '');
             
@@ -164,7 +162,7 @@ export default function DynamicIfscPage(props) {
             });
          });
          
-         // Fallback if database records are completely distorted and matched nothing
+         // Fallback if records are too corrupt to parse with the intersection matcher
          if (uniqueDistricts.length === 0) {
             uniqueDistricts = Array.from(new Set(dataList.map(d => d.district?.trim().toUpperCase()))).filter(Boolean);
          }
@@ -179,8 +177,7 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${formatToSlug(d)}`
       }));
     }
-    
-    // LEVEL 3: Shows Cities
+    // LEVEL 3: District level -> Shows Cities/Centres strictly
     else if (bankSlug && stateSlug && districtSlug && !citySlug) {
       const uniqueCities = Array.from(new Set(dataList.map(d => (d.centre || d.city)?.trim().toUpperCase()))).filter(Boolean);
       displayCards = uniqueCities.sort().map(c => ({
@@ -190,8 +187,7 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}/${formatToSlug(c)}`
       }));
     }
-    
-    // LEVEL 4: Shows Branches
+    // LEVEL 4: City level -> Shows Branches strictly
     else if (bankSlug && stateSlug && districtSlug && citySlug && !branchSlug) {
       const uniqueBranches = Array.from(new Set(dataList.map(d => d.branch?.trim().toUpperCase()))).filter(Boolean);
       displayCards = uniqueBranches.sort().map(b => ({
@@ -201,8 +197,7 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}/${citySlug}/${formatToSlug(b)}`
       }));
     }
-    
-    // LEVEL 5: Branch Card
+    // LEVEL 5: Branch level -> Displays final active details card view
     else if (bankSlug && stateSlug && districtSlug && citySlug && branchSlug) {
       isFinalBranchView = true;
       branchDataToShow = dataList;
@@ -217,6 +212,7 @@ export default function DynamicIfscPage(props) {
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 space-y-8 flex flex-col min-h-screen">
       
+      {/* Dynamic SEO Path Breadcrumbs */}
       <nav className="flex flex-wrap text-sm font-medium gap-2 bg-slate-900/80 p-4 rounded-xl border border-slate-700 shadow-md">
         <Link href="/ifsc-directory" className="text-blue-400 hover:text-white transition-colors">BANKS</Link>
         {bankSlug && (
