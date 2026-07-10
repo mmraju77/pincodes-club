@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState, use } from 'react';
 import { supabase } from '../../../lib/supabase';
 
+// Official Districts Data Store for All Indian States and Union Territories
 const ALL_INDIA_DISTRICTS = {
   'andaman-and-nicobar-islands': ["Nicobar", "North and Middle Andaman", "South Andaman"],
   'andhra-pradesh': [
@@ -52,20 +53,22 @@ const ALL_INDIA_DISTRICTS = {
   'west-bengal': ["Alipurduar", "Bankura", "Birbhum", "Cooch Behar", "Dakshin Dinajpur", "Darjeeling", "Hooghly", "Howrah", "Jalpaiguri", "Jhargram", "Kalimpong", "Kolkata", "Malda", "Murshidabad", "Nadia", "North 24 Parganas", "Paschim Bardhaman", "Paschim Medinipur", "Purba Bardhaman", "Purba Medinipur", "Purulia", "South 24 Parganas", "Uttar Dinajpur"]
 };
 
-// MASTER AGGRESSIVE WILDCARD GENERATOR: Removes exact match blockers ('and', 'ltd', 'limited', 'co', 'op')
+// MASTER AGGRESSIVE WILDCARD GENERATOR: Now handles "co-operative" vs "cooperative"
 const createFuzzyQuery = (slugParam) => {
   if (!slugParam) return '';
   let text = decodeURIComponent(slugParam).toLowerCase();
   
-  // Expert Fix: Remove tricky connector words that cause exact-match failures in RBI data
-  const stopWords = ['and', 'the', 'ltd', 'limited', 'co', 'op', 'operative', 'of'];
+  // Expert Fix: Remove tricky connector words that cause exact-match failures
+  const stopWords = ['and', 'the', 'ltd', 'limited', 'of'];
   stopWords.forEach(word => {
       const regex = new RegExp(`\\b${word}\\b`, 'g');
       text = text.replace(regex, ' ');
   });
 
-  // Split into core parts and join with %
-  const parts = text.replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(Boolean);
+  // EXPERT FIX: If the text contains "co operative" or "co-operative", force it into a wildcard pattern that matches "cooperative" in the DB.
+  text = text.replace(/co[\s-]*operative/g, 'co%operative');
+
+  const parts = text.replace(/[^a-z0-9%]/g, ' ').split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '%';
   return `%${parts.join('%')}%`;
 };
@@ -119,7 +122,6 @@ export default function DynamicIfscPage(props) {
       try {
         let q = supabase.from('ifsc_codes').select('*');
         
-        // Advanced wildcard mapping to bypass spacing, hyphens, and stop-words
         const queryBank = createFuzzyQuery(bankSlug);
         const queryState = createFuzzyQuery(stateSlug);
         const queryDistrict = createFuzzyQuery(districtSlug);
@@ -139,7 +141,6 @@ export default function DynamicIfscPage(props) {
             q = q.ilike('branch', queryBranch);
         }
 
-        // Expanded limit to handle massive bank returns
         q = q.limit(branchSlug ? 1 : 50000); 
 
         const { data, error } = await q;
