@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useEffect, useState, use } from 'react';
 import { supabase } from '../../../lib/supabase';
 
-// Official Districts Data Store for All Indian States and Union Territories
 const ALL_INDIA_DISTRICTS = {
   'andaman-and-nicobar-islands': ["Nicobar", "North and Middle Andaman", "South Andaman"],
   'andhra-pradesh': [
@@ -53,10 +52,21 @@ const ALL_INDIA_DISTRICTS = {
   'west-bengal': ["Alipurduar", "Bankura", "Birbhum", "Cooch Behar", "Dakshin Dinajpur", "Darjeeling", "Hooghly", "Howrah", "Jalpaiguri", "Jhargram", "Kalimpong", "Kolkata", "Malda", "Murshidabad", "Nadia", "North 24 Parganas", "Paschim Bardhaman", "Paschim Medinipur", "Purba Bardhaman", "Purba Medinipur", "Purulia", "South 24 Parganas", "Uttar Dinajpur"]
 };
 
-// Master Wildcard Generator: Creates a 100% resilient query bypassing spacing and hyphen mismatch
+// MASTER AGGRESSIVE WILDCARD GENERATOR: Removes exact match blockers ('and', 'ltd', 'limited', 'co', 'op')
 const createFuzzyQuery = (slugParam) => {
   if (!slugParam) return '';
-  const parts = decodeURIComponent(slugParam).replace(/[^a-zA-Z0-9]/g, ' ').split(/\s+/).filter(Boolean);
+  let text = decodeURIComponent(slugParam).toLowerCase();
+  
+  // Expert Fix: Remove tricky connector words that cause exact-match failures in RBI data
+  const stopWords = ['and', 'the', 'ltd', 'limited', 'co', 'op', 'operative', 'of'];
+  stopWords.forEach(word => {
+      const regex = new RegExp(`\\b${word}\\b`, 'g');
+      text = text.replace(regex, ' ');
+  });
+
+  // Split into core parts and join with %
+  const parts = text.replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '%';
   return `%${parts.join('%')}%`;
 };
 
@@ -109,7 +119,7 @@ export default function DynamicIfscPage(props) {
       try {
         let q = supabase.from('ifsc_codes').select('*');
         
-        // Advanced wildcard mapping prevents miss-matches like "co-operative" vs "cooperative"
+        // Advanced wildcard mapping to bypass spacing, hyphens, and stop-words
         const queryBank = createFuzzyQuery(bankSlug);
         const queryState = createFuzzyQuery(stateSlug);
         const queryDistrict = createFuzzyQuery(districtSlug);
@@ -129,7 +139,7 @@ export default function DynamicIfscPage(props) {
             q = q.ilike('branch', queryBranch);
         }
 
-        // Massively increased limit to 50,000 to ensure no data truncation for massive banks like SBI
+        // Expanded limit to handle massive bank returns
         q = q.limit(branchSlug ? 1 : 50000); 
 
         const { data, error } = await q;
@@ -150,7 +160,6 @@ export default function DynamicIfscPage(props) {
   let isFinalBranchView = false;
   let branchDataToShow = [];
   
-  // Smart Title Generation: Uses actual database spelling for flawless UI text mapping
   const activeBankTitle = dataList.length > 0 ? formatBankAcronyms((dataList[0].bank || '').toLowerCase()) : formatBankAcronyms(formatFromSlug(bankSlug));
 
   if (dataList.length > 0) {
