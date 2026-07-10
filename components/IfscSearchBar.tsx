@@ -52,9 +52,8 @@ export default function IfscSearchBar() {
       try {
         let searchString = query.toLowerCase().trim();
 
-        // 🚨 EXPERT LOGIC: Auto-Expand Acronyms for Database Matching
         const acronyms = {
-          'sbi': 'state bank',
+          'sbi': 'state bank of india',
           'hdfc': 'hdfc bank',
           'icici': 'icici bank',
           'pnb': 'punjab national',
@@ -67,24 +66,40 @@ export default function IfscSearchBar() {
           'rbl': 'rbl bank'
         };
 
+        let resolvedBankName = '';
+
+        // 🚨 MASTER FIX 1: Map the exact bank name if an acronym is typed
         Object.keys(acronyms).forEach(key => {
           const regex = new RegExp(`\\b${key}\\b`, 'g');
+          if (searchString.match(regex)) {
+             resolvedBankName = acronyms[key];
+          }
           searchString = searchString.replace(regex, acronyms[key]);
         });
 
-        // Remove stop words that block matches
-        searchString = searchString.replace(/\bbranch\b/g, ' ');
-
-        // Tokenize search into words
+        searchString = searchString.replace(/\bbranch\b/g, ' ').replace(/\bbank\b/g, ' ');
         const words = searchString.split(/\s+/).filter(w => w.length > 0);
 
-        // 🚨 MASTER QUERY: Enforce ALL typed words to exist anywhere in the record
         let q = supabase.from('ifsc_codes').select('*');
-        words.forEach(word => {
-            q = q.or(`ifsc.ilike.%${word}%,bank.ilike.%${word}%,branch.ilike.%${word}%,city.ilike.%${word}%,centre.ilike.%${word}%,district.ilike.%${word}%`);
-        });
 
-        const { data, error } = await q.limit(6);
+        // 🚨 MASTER FIX 2: Strict Multi-Token Matcher (AND logic)
+        // If a specific bank is identified (e.g., user typed SBI), strictly lock the query to that bank
+        if (resolvedBankName) {
+            q = q.ilike('bank', `%${resolvedBankName}%`);
+            // The remaining words MUST be in the branch or city (prevents showing all SBI branches)
+            words.forEach(word => {
+                if (!resolvedBankName.includes(word)) {
+                   q = q.or(`branch.ilike.%${word}%,city.ilike.%${word}%,centre.ilike.%${word}%,district.ilike.%${word}%`);
+                }
+            });
+        } else {
+            // If no specific bank acronym is typed, enforce that ALL words must exist somewhere in the row
+            words.forEach(word => {
+                q = q.or(`ifsc.ilike.%${word}%,bank.ilike.%${word}%,branch.ilike.%${word}%,city.ilike.%${word}%,centre.ilike.%${word}%,district.ilike.%${word}%`);
+            });
+        }
+
+        const { data, error } = await q.limit(10); // Show top 10 accurate results
 
         if (error) throw error;
         setResults(data || []);
