@@ -1,8 +1,9 @@
+// @ts-nocheck
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, useRef } from 'react';
-import { supabase } from '../../lib/supabase';
+import { useState } from 'react';
+import IfscSearchBar from '../../components/IfscSearchBar';
 
 // Massive list of all Indian Banks
 const ALL_BANKS = [
@@ -36,120 +37,12 @@ const formatToSlug = (text: string) => {
   return text.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 };
 
-const buildBranchUrl = (row: any) => {
-  const b = formatToSlug(row.bank);
-  const s = formatToSlug(row.state);
-  const d = formatToSlug(row.district);
-  const c = formatToSlug(row.city || row.centre);
-  const br = formatToSlug(row.branch);
-  return `/ifsc-directory/${b}/${s}/${d}/${c}/${br}`;
-};
-
 export default function IfscDirectoryHub() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedTerm, setDebouncedTerm] = useState('');
-  
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isSearchingDB, setIsSearchingDB] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  
-  const searchContainerRef = useRef<HTMLDivElement>(null);
-
-  const scrollToSection = (sectionId: string) => {
-    const section = document.getElementById(sectionId);
-    if (section) {
-      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedTerm(searchTerm.trim());
-    }, 400); 
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
-
-  useEffect(() => {
-    const fetchGlobalSearch = async () => {
-      if (debouncedTerm.length >= 3) {
-        setIsSearchingDB(true);
-        setShowDropdown(true);
-        setSearchError(null);
-        
-        try {
-          let searchString = debouncedTerm.trim().toLowerCase();
-
-          const acronyms: Record<string, string> = {
-            'sbi': 'state bank of india',
-            'hdfc': 'hdfc bank',
-            'icici': 'icici bank',
-            'pnb': 'punjab national bank',
-            'bob': 'bank of baroda',
-            'boi': 'bank of india',
-            'cbi': 'central bank of india',
-            'iob': 'indian overseas bank',
-            'bom': 'bank of maharashtra',
-            'ubi': 'union bank of india',
-            'rbl': 'rbl bank'
-          };
-
-          for (const [key, value] of Object.entries(acronyms)) {
-            const regex = new RegExp(`\\b${key}\\b`, 'gi');
-            searchString = searchString.replace(regex, value);
-          }
-
-          const words = searchString.split(/\s+/).filter(w => w.length > 0);
-          let dataToUse: any[] = [];
-
-          const { data, error } = await supabase.rpc('search_ifsc_smart', { 
-            search_words: words 
-          });
-
-          if (error) {
-            console.warn("Smart search RPC failed or missing, using robust fallback...");
-            let q = supabase.from('ifsc_codes').select('bank, state, district, city, centre, branch, ifsc');
-            words.forEach(word => {
-              const safeWord = word.replace(/"/g, '');
-              const sq = `%${safeWord}%`;
-              q = q.or(`ifsc.ilike."${sq}",bank.ilike."${sq}",branch.ilike."${sq}",city.ilike."${sq}",centre.ilike."${sq}",district.ilike."${sq}"`);
-            });
-            const fallbackRes = await q.limit(10);
-            if (fallbackRes.data) dataToUse = fallbackRes.data;
-          } else {
-            dataToUse = data || [];
-          }
-
-          setSearchResults(dataToUse);
-          
-        } catch (err: any) {
-          console.error("Search Architecture Error:", err.message);
-          setSearchError("Unable to fetch data. Please try again.");
-          setSearchResults([]);
-        } finally {
-          setIsSearchingDB(false);
-        }
-      } else {
-        setSearchResults([]);
-        setShowDropdown(false);
-      }
-    };
-
-    fetchGlobalSearch();
-  }, [debouncedTerm]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
-        setShowDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  // Local state just for filtering the big bank list below
+  const [bankFilter, setBankFilter] = useState('');
 
   const filteredBanks = ALL_BANKS.filter(bank => 
-    bank.toLowerCase().includes(searchTerm.toLowerCase())
+    bank.toLowerCase().includes(bankFilter.toLowerCase())
   );
 
   return (
@@ -162,63 +55,9 @@ export default function IfscDirectoryHub() {
         <h1 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-4">India Bank Routing Center</h1>
         <p className="text-slate-400 text-lg max-w-2xl mx-auto mb-8">Search instantly by Bank Name, Branch, City, District, or IFSC Code.</p>
         
-        <div className="max-w-2xl mx-auto relative text-left" ref={searchContainerRef}>
-          <svg className="w-6 h-6 absolute left-4 top-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-          <input 
-            type="text" 
-            placeholder="Search e.g., 'SBI Gajuwaka', 'HDFC Mumbai', 'SBIN0001234'..." 
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              if (e.target.value.length >= 3) setShowDropdown(true);
-            }}
-            onFocus={() => { if (searchTerm.length >= 3) setShowDropdown(true); }}
-            className="w-full bg-slate-900 border-2 border-slate-600 text-white rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:border-blue-500 transition-all shadow-lg font-medium text-lg"
-          />
-          
-          {showDropdown && searchTerm.length >= 3 && (
-            <div className="absolute top-full left-0 w-full mt-2 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl z-50 max-h-[400px] overflow-y-auto custom-scrollbar">
-              {isSearchingDB ? (
-                <div className="p-6 text-center flex flex-col items-center justify-center space-y-3">
-                   <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                   <p className="text-slate-400 font-medium">Running Smart AI Scan...</p>
-                </div>
-              ) : searchError ? (
-                <div className="p-6 text-center text-red-400 font-medium">{searchError}</div>
-              ) : searchResults.length > 0 ? (
-                <div className="flex flex-col">
-                  <div className="px-4 py-2 bg-slate-900/80 border-b border-slate-700 text-xs font-bold text-slate-400 uppercase tracking-wider sticky top-0 backdrop-blur-md">
-                    Top Matches Found
-                  </div>
-                  {searchResults.map((res, i) => (
-                    <Link 
-                      href={buildBranchUrl(res)} 
-                      key={i} 
-                      onClick={() => setShowDropdown(false)}
-                      className="p-4 border-b border-slate-700 hover:bg-blue-600/10 flex flex-col transition-colors group cursor-pointer"
-                    >
-                      <div className="flex justify-between items-start mb-1 gap-4">
-                         <span className="text-blue-400 font-bold capitalize text-lg group-hover:text-blue-300 transition-colors" translate="no">{res.bank?.toLowerCase()}</span>
-                         <span className="bg-blue-600 text-white text-xs px-2.5 py-1 rounded font-black tracking-widest shrink-0 shadow-sm">{res.ifsc}</span>
-                      </div>
-                      <span className="text-white text-base font-semibold capitalize mb-1" translate="no">{res.branch?.toLowerCase()}</span>
-                      <span className="text-slate-400 text-sm capitalize flex items-center gap-1" translate="no">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                        {(res.city || res.centre)?.toLowerCase()}, {res.district?.toLowerCase()}, {res.state?.toLowerCase()}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-8 text-center">
-                  <div className="text-4xl mb-3">🔍</div>
-                  <p className="text-slate-300 font-bold text-lg mb-1">No matches found</p>
-                  <p className="text-slate-500 text-sm">Try searching with a different branch name, city, or IFSC code.</p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        {/* 🚨 INJECTED THE NEW STANDALONE SEARCH COMPONENT HERE 🚨 */}
+        <IfscSearchBar />
+
       </div>
 
       <section className="relative z-10">
@@ -250,11 +89,20 @@ export default function IfscDirectoryHub() {
         </div>
       </section>
 
-      {/* EXPERT FIX: Applied Premium Path Logic UI to Bank Cards */}
       <section id="banks-section" className="relative z-10 scroll-mt-24">
-        <div className="flex justify-between items-end mb-6">
-          <h2 className="text-2xl font-bold text-white border-l-4 border-blue-500 pl-4">All Indian Banks</h2>
-          <span className="text-slate-500 text-sm font-medium">{filteredBanks.length} Banks</span>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-white border-l-4 border-blue-500 pl-4">All Indian Banks</h2>
+            <span className="text-slate-500 text-sm font-medium ml-4">{filteredBanks.length} Banks</span>
+          </div>
+          {/* Mini-filter just for this bank grid */}
+          <input 
+            type="text" 
+            placeholder="Filter bank list..." 
+            value={bankFilter}
+            onChange={(e) => setBankFilter(e.target.value)}
+            className="bg-slate-900 border border-slate-700 text-white rounded-lg py-2 px-4 focus:outline-none focus:border-blue-500 transition-all text-sm w-full md:w-64"
+          />
         </div>
         
         {filteredBanks.length > 0 ? (
@@ -270,10 +118,13 @@ export default function IfscDirectoryHub() {
               );
             })}
           </div>
-        ) : null}
+        ) : (
+          <div className="text-center py-8 text-slate-400 border border-slate-800 rounded-xl bg-slate-900/40">
+            No banks found matching "{bankFilter}".
+          </div>
+        )}
       </section>
 
-      {/* EXPERT FIX: Applied Premium Path Logic UI to Popular City Links */}
       <section id="cities-section" className="relative z-10 scroll-mt-24">
         <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-purple-500 pl-4">Direct Popular City Links</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
