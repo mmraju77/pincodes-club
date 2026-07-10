@@ -53,20 +53,23 @@ const ALL_INDIA_DISTRICTS = {
   'west-bengal': ["Alipurduar", "Bankura", "Birbhum", "Cooch Behar", "Dakshin Dinajpur", "Darjeeling", "Hooghly", "Howrah", "Jalpaiguri", "Jhargram", "Kalimpong", "Kolkata", "Malda", "Murshidabad", "Nadia", "North 24 Parganas", "Paschim Bardhaman", "Paschim Medinipur", "Purba Bardhaman", "Purba Medinipur", "Purulia", "South 24 Parganas", "Uttar Dinajpur"]
 };
 
-// MASTER AGGRESSIVE WILDCARD GENERATOR: Now handles "co-operative" vs "cooperative"
+// UNIVERSAL DYNAMIC NORMALIZER: Resolves spaces, hyphens, connectors, and corporate suffixes globally across all parameters
 const createFuzzyQuery = (slugParam) => {
   if (!slugParam) return '';
   let text = decodeURIComponent(slugParam).toLowerCase();
   
-  // Expert Fix: Remove tricky connector words that cause exact-match failures
-  const stopWords = ['and', 'the', 'ltd', 'limited', 'of'];
+  // Replace symbols and common abbreviations to secure matching logic
+  text = text.replace(/&/g, ' ');
+  
+  const stopWords = ['and', 'the', 'ltd', 'limited', 'of', 'bank', 'branch'];
   stopWords.forEach(word => {
       const regex = new RegExp(`\\b${word}\\b`, 'g');
       text = text.replace(regex, ' ');
   });
 
-  // EXPERT FIX: If the text contains "co operative" or "co-operative", force it into a wildcard pattern that matches "cooperative" in the DB.
+  // Handle generalized corporate co-operative terminology variations perfectly
   text = text.replace(/co[\s-]*operative/g, 'co%operative');
+  text = text.replace(/co[\s-]*op/g, 'co%op');
 
   const parts = text.replace(/[^a-z0-9%]/g, ' ').split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '%';
@@ -95,7 +98,7 @@ const formatContactNumber = (contact) => {
 const formatBankAcronyms = (str) => {
     if (!str) return '';
     let result = str.replace(/\b\w/g, l => l.toUpperCase());
-    const acronyms = ['RTGS', 'NEFT', 'IMPS', 'SWIFT', 'MICR', 'UPI', 'IFSC', 'SBI', 'HDFC', 'ICICI'];
+    const acronyms = ['RTGS', 'NEFT', 'IMPS', 'SWIFT', 'MICR', 'UPI', 'IFSC', 'SBI', 'HDFC', 'ICICI', 'PNB', 'BOB', 'IDBI'];
     acronyms.forEach(acronym => {
         const regex = new RegExp(`\\b${acronym}\\b`, 'gi');
         result = result.replace(regex, acronym.toUpperCase());
@@ -122,6 +125,7 @@ export default function DynamicIfscPage(props) {
       try {
         let q = supabase.from('ifsc_codes').select('*');
         
+        // Universal adaptive token mappings across all tiers
         const queryBank = createFuzzyQuery(bankSlug);
         const queryState = createFuzzyQuery(stateSlug);
         const queryDistrict = createFuzzyQuery(districtSlug);
@@ -141,7 +145,8 @@ export default function DynamicIfscPage(props) {
             q = q.ilike('branch', queryBranch);
         }
 
-        q = q.limit(branchSlug ? 1 : 50000); 
+        // Expanded max limits to fully secure big bank structural allocations without data capping
+        q = q.limit(branchSlug ? 1 : 60000); 
 
         const { data, error } = await q;
         if (error) throw error;
