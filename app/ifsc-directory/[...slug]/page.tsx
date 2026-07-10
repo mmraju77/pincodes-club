@@ -72,6 +72,22 @@ const formatContactNumber = (contact) => {
   return strContact;
 };
 
+// Expert formatting for Bank Acronyms like RTGS, NEFT, IMPS, SWIFT, MICR, UPI
+const formatBankAcronyms = (str) => {
+    if (!str) return '';
+    let result = str.replace(/\b\w/g, l => l.toUpperCase());
+    
+    // List of banking acronyms that must always remain fully capitalized
+    const acronyms = ['RTGS', 'NEFT', 'IMPS', 'SWIFT', 'MICR', 'UPI', 'IFSC'];
+    
+    acronyms.forEach(acronym => {
+        const regex = new RegExp(`\\b${acronym}\\b`, 'gi');
+        result = result.replace(regex, acronym.toUpperCase());
+    });
+    
+    return result;
+};
+
 export default function DynamicIfscPage(props) {
   const params = props.params instanceof Promise ? use(props.params) : props.params;
   const slug = params?.slug || [];
@@ -97,7 +113,6 @@ export default function DynamicIfscPage(props) {
       try {
         let q = supabase.from('ifsc_codes').select('*');
         
-        // EXPERT FIX: Removing any malicious quotes to prevent syntax errors, then safely quoting them in the OR string
         const safeBank = dbBank ? dbBank.replace(/"/g, '') : '';
         const safeState = dbState ? dbState.replace(/"/g, '') : '';
         const safeDistrict = dbDistrict ? dbDistrict.replace(/"/g, '') : '';
@@ -108,11 +123,9 @@ export default function DynamicIfscPage(props) {
         if (safeState) q = q.ilike('state', `%${safeState}%`);
         
         if (safeDistrict) {
-            // CRITICAL FIX: Wrapped %value% in double quotes so Supabase handles spaces (e.g., "New Delhi") properly
             q = q.or(`district.ilike."%${safeDistrict}%",city.ilike."%${safeDistrict}%",centre.ilike."%${safeDistrict}%"`);
         }
         if (safeCity) {
-            // CRITICAL FIX: Wrapped %value% in double quotes here as well
             q = q.or(`centre.ilike."%${safeCity}%",city.ilike."%${safeCity}%"`);
         }
         if (safeBranch) {
@@ -140,7 +153,6 @@ export default function DynamicIfscPage(props) {
   let branchDataToShow = [];
 
   if (dataList.length > 0) {
-    // LEVEL 1: Shows States
     if (bankSlug && !stateSlug) {
       const uniqueStates = Array.from(new Set(dataList.map(d => d.state?.trim().toUpperCase()))).filter(Boolean);
       displayCards = uniqueStates.sort().map(s => ({
@@ -150,7 +162,6 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${formatToSlug(s)}`
       }));
     } 
-    // LEVEL 2: Shows Districts with strict intersection filter
     else if (bankSlug && stateSlug && !districtSlug) {
       let uniqueDistricts = [];
       
@@ -179,9 +190,10 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${formatToSlug(d)}`
       }));
     }
-    // LEVEL 3: Shows Cities strictly mapped to the chosen District
     else if (bankSlug && stateSlug && districtSlug && !citySlug) {
-      const uniqueCities = Array.from(new Set(dataList.map(d => (d.centre || d.city)?.trim().toUpperCase()))).filter(Boolean);
+      const uniqueCities = Array.from(new Set(dataList.map(row => {
+         return (row.centre || row.city || '').trim().toUpperCase();
+      }))).filter(Boolean);
       
       displayCards = uniqueCities.sort().map(c => ({
         name: c,
@@ -190,7 +202,6 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}/${formatToSlug(c)}`
       }));
     }
-    // LEVEL 4: Shows Branches strictly mapped to the chosen City
     else if (bankSlug && stateSlug && districtSlug && citySlug && !branchSlug) {
       const uniqueBranches = Array.from(new Set(dataList.map(d => d.branch?.trim().toUpperCase()))).filter(Boolean);
       
@@ -201,17 +212,11 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}/${citySlug}/${formatToSlug(b)}`
       }));
     }
-    // LEVEL 5: Detailed Branch Data Card
     else if (bankSlug && stateSlug && districtSlug && citySlug && branchSlug) {
       isFinalBranchView = true;
       branchDataToShow = dataList;
     }
   }
-
-  const capitalizeWords = (str) => {
-    if (!str) return '';
-    return str.replace(/\b\w/g, l => l.toUpperCase());
-  };
 
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 space-y-8 flex flex-col min-h-screen">
@@ -252,11 +257,11 @@ export default function DynamicIfscPage(props) {
 
       <div className="bg-slate-800/40 p-8 rounded-3xl border border-slate-700/50 shadow-xl">
         <h1 className="text-3xl font-extrabold text-white capitalize mb-2">
-          {capitalizeWords(dbBank)}
-          {dbState && ` ➔ ${capitalizeWords(dbState)}`}
-          {dbDistrict && ` ➔ ${capitalizeWords(dbDistrict)} District`}
-          {dbCity && ` ➔ ${capitalizeWords(dbCity)}`}
-          {dbBranch && ` ➔ ${capitalizeWords(dbBranch)}`}
+          {formatBankAcronyms(dbBank)}
+          {dbState && ` ➔ ${formatBankAcronyms(dbState)}`}
+          {dbDistrict && ` ➔ ${formatBankAcronyms(dbDistrict)} District`}
+          {dbCity && ` ➔ ${formatBankAcronyms(dbCity)}`}
+          {dbBranch && ` ➔ ${formatBankAcronyms(dbBranch)}`}
         </h1>
         <p className="text-slate-400 text-sm font-light">
           {!stateSlug && "Select a State to view available districts."}
@@ -281,7 +286,8 @@ export default function DynamicIfscPage(props) {
                    <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">
                      {card.icon}
                    </div>
-                   <h3 className="text-white font-bold text-base capitalize group-hover:text-blue-400 transition-colors" translate="no">{card.name.toLowerCase()}</h3>
+                   {/* Expert Fix applied for Acronym rendering */}
+                   <h3 className="text-white font-bold text-base group-hover:text-blue-400 transition-colors" translate="no">{formatBankAcronyms(card.name.toLowerCase())}</h3>
                    <span className="text-slate-500 text-xs mt-3 group-hover:text-blue-400 transition-colors">{card.label}</span>
                 </Link>
               )) : (
@@ -303,18 +309,33 @@ export default function DynamicIfscPage(props) {
                     <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-bl-[100px] -z-10"></div>
                     <div className="flex justify-between items-start gap-4 mb-4 pb-4 border-b border-slate-700/50">
                       <div className="flex-1 pr-4">
-                        <h3 className="text-2xl md:text-3xl font-extrabold text-blue-400 mb-2 capitalize" translate="no">{(row.bank || 'N/A').toLowerCase()}</h3>
-                        <p className="text-lg font-semibold text-slate-300 capitalize" translate="no">📍 {(row.branch || 'N/A').toLowerCase()}</p>
+                        <h3 className="text-2xl md:text-3xl font-extrabold text-blue-400 mb-2" translate="no">{formatBankAcronyms((row.bank || 'N/A').toLowerCase())}</h3>
+                        <p className="text-lg font-semibold text-slate-300" translate="no">📍 {formatBankAcronyms((row.branch || 'N/A').toLowerCase())}</p>
                       </div>
                       <span className="bg-blue-600 text-white px-5 py-3 rounded-xl text-lg md:text-xl font-black tracking-widest shadow-md shrink-0">{row.ifsc || 'N/A'}</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6 pt-2 text-sm flex-grow">
-                      <div><span className="text-slate-500 text-xs uppercase font-bold block mb-1 tracking-wider">City / Centre</span><span className="text-white text-base font-medium capitalize" translate="no">{(row.centre || row.city || 'N/A').toLowerCase()}</span></div>
+                      <div><span className="text-slate-500 text-xs uppercase font-bold block mb-1 tracking-wider">City / Centre</span><span className="text-white text-base font-medium" translate="no">{formatBankAcronyms((row.centre || row.city || 'N/A').toLowerCase())}</span></div>
                       <div><span className="text-slate-500 text-xs uppercase font-bold block mb-1 tracking-wider">Contact Number</span><span className="text-white text-base font-medium">{contact}</span></div>
-                      <div><span className="text-slate-500 text-xs uppercase font-bold block mb-1 tracking-wider">MICR Code</span><span className="text-white text-base font-medium">{row.micr || 'Not Available'}</span></div>
-                      <div><span className="text-slate-500 text-xs uppercase font-bold block mb-1 tracking-wider">District</span><span className="text-white text-base font-medium capitalize" translate="no">{(row.district || 'N/A').toLowerCase()}</span></div>
-                      <div className="col-span-1 md:col-span-2"><span className="text-slate-500 text-xs uppercase font-bold block mb-1 tracking-wider">State</span><span className="text-white text-base font-medium capitalize" translate="no">{(row.state || 'N/A').toLowerCase()}</span></div>
-                      <div className="col-span-1 md:col-span-2"><span className="text-slate-500 text-xs uppercase font-bold block mb-1 tracking-wider">Address</span><span className="text-white text-sm leading-relaxed capitalize" translate="no">{(row.address || 'N/A').toLowerCase()}</span></div>
+                      
+                      {/* Expert Fix for rendering MICR value specifically handling NA situations */}
+                      <div><span className="text-slate-500 text-xs uppercase font-bold block mb-1 tracking-wider">MICR Code</span><span className="text-white text-base font-medium">{row.micr && row.micr !== 'NaN' && row.micr !== '0' ? row.micr : 'Not Available'}</span></div>
+                      
+                      <div><span className="text-slate-500 text-xs uppercase font-bold block mb-1 tracking-wider">District</span><span className="text-white text-base font-medium" translate="no">{formatBankAcronyms((row.district || 'N/A').toLowerCase())}</span></div>
+                      <div className="col-span-1 md:col-span-2"><span className="text-slate-500 text-xs uppercase font-bold block mb-1 tracking-wider">State</span><span className="text-white text-base font-medium" translate="no">{formatBankAcronyms((row.state || 'N/A').toLowerCase())}</span></div>
+                      <div className="col-span-1 md:col-span-2"><span className="text-slate-500 text-xs uppercase font-bold block mb-1 tracking-wider">Address</span><span className="text-white text-sm leading-relaxed" translate="no">{formatBankAcronyms((row.address || 'N/A').toLowerCase())}</span></div>
+                      
+                      {/* The Available Payment Modes logic (Based on Screenshot Request) */}
+                      <div className="col-span-1 md:col-span-2 mt-4 pt-4 border-t border-slate-700/50">
+                        <span className="text-slate-500 text-xs uppercase font-bold block mb-3 tracking-wider">Supported Payment Modes</span>
+                        <div className="flex flex-wrap gap-2">
+                           <span className="px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-xs font-bold tracking-wider">RTGS</span>
+                           <span className="px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-lg text-xs font-bold tracking-wider">NEFT</span>
+                           <span className="px-3 py-1.5 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-lg text-xs font-bold tracking-wider">IMPS</span>
+                           <span className="px-3 py-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-xs font-bold tracking-wider">UPI</span>
+                        </div>
+                      </div>
+
                     </div>
                   </div>
                 )
