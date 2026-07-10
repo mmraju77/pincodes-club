@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useState } from 'react';
 import IfscSearchBar from '../../components/IfscSearchBar';
 
-// Massive list of all Indian Banks
 const ALL_BANKS = [
   "Abhyudaya Co-operative Bank", "Aditya Birla Idea Payments Bank", "Airtel Payments Bank", "Allahabad Bank", "Andhra Bank",
   "Andhra Pragathi Grameena Bank", "Apna Sahakari Bank", "Axis Bank", "Bandhan Bank", "Bank of America",
@@ -38,26 +37,45 @@ const formatToSlug = (text: string) => {
 };
 
 export default function IfscDirectoryHub() {
-  // Local state just for filtering the big bank list below
   const [bankFilter, setBankFilter] = useState('');
 
-  const filteredBanks = ALL_BANKS.filter(bank => 
-    bank.toLowerCase().includes(bankFilter.toLowerCase())
-  );
+  // 🚨 EXPERT LOGIC: Intelligent Multi-Word Acronym Filter
+  const getFilteredBanks = () => {
+    if (!bankFilter) return ALL_BANKS;
+    
+    let searchStr = bankFilter.toLowerCase().trim();
+    const acronyms = {
+      'sbi': 'state bank', 'hdfc': 'hdfc', 'icici': 'icici', 'pnb': 'punjab national',
+      'bob': 'bank of baroda', 'boi': 'bank of india', 'ubi': 'union bank',
+      'iob': 'indian overseas', 'cbi': 'central bank', 'bom': 'bank of maharashtra', 'rbl': 'rbl'
+    };
+
+    Object.keys(acronyms).forEach(key => {
+      const regex = new RegExp(`\\b${key}\\b`, 'g');
+      searchStr = searchStr.replace(regex, acronyms[key]);
+    });
+
+    const searchWords = searchStr.split(/\s+/).filter(Boolean);
+
+    return ALL_BANKS.filter(bank => {
+      const bankName = bank.toLowerCase();
+      // Ensure EVERY word typed by the user exists in the bank name
+      return searchWords.every(word => bankName.includes(word));
+    });
+  };
+
+  const filteredBanks = getFilteredBanks();
 
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 space-y-12 flex flex-col min-h-screen scroll-smooth">
       
-      {/* Search Header Section */}
       <div className="bg-slate-800/40 backdrop-blur-md p-8 md:p-12 rounded-3xl border border-slate-700/50 shadow-2xl text-center relative overflow-visible z-50">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-emerald-500 rounded-t-3xl"></div>
         <div className="inline-block px-4 py-1.5 mb-6 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-bold tracking-widest uppercase mt-4">IFSC Directory Hub</div>
         <h1 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-4">India Bank Routing Center</h1>
         <p className="text-slate-400 text-lg max-w-2xl mx-auto mb-8">Search instantly by Bank Name, Branch, City, District, or IFSC Code.</p>
         
-        {/* 🚨 INJECTED THE NEW STANDALONE SEARCH COMPONENT HERE 🚨 */}
         <IfscSearchBar />
-
       </div>
 
       <section className="relative z-10">
@@ -68,19 +86,16 @@ export default function IfscDirectoryHub() {
              <h3 className="text-white font-bold mb-1 group-hover:text-blue-400 transition-colors">Search by Bank</h3>
              <p className="text-slate-400 text-xs">Scroll to all banks.</p>
           </Link>
-          
           <Link href="/ifsc-directory/states" className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-slate-700 text-center relative overflow-hidden group cursor-pointer hover:border-blue-500 transition-all shadow-md hover:shadow-blue-900/20">
              <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">🗺️</div>
              <h3 className="text-white font-bold mb-1 group-hover:text-blue-400 transition-colors">Search by State</h3>
              <p className="text-slate-400 text-xs">View all Indian States.</p>
           </Link>
-          
           <Link href="/ifsc-directory/districts" className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-slate-700 text-center relative overflow-hidden group cursor-pointer hover:border-blue-500 transition-all shadow-md hover:shadow-blue-900/20">
              <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">🏢</div>
              <h3 className="text-white font-bold mb-1 group-hover:text-blue-400 transition-colors">Search by District</h3>
              <p className="text-slate-400 text-xs">Search 700+ Districts.</p>
           </Link>
-          
           <Link href="#cities-section" className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-slate-700 text-center relative overflow-hidden group cursor-pointer hover:border-purple-500 transition-all shadow-md hover:shadow-purple-900/20">
              <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">🏙️</div>
              <h3 className="text-white font-bold mb-1 group-hover:text-purple-400 transition-colors">Popular Cities</h3>
@@ -95,13 +110,12 @@ export default function IfscDirectoryHub() {
             <h2 className="text-2xl font-bold text-white border-l-4 border-blue-500 pl-4">All Indian Banks</h2>
             <span className="text-slate-500 text-sm font-medium ml-4">{filteredBanks.length} Banks</span>
           </div>
-          {/* Mini-filter just for this bank grid */}
           <input 
             type="text" 
-            placeholder="Filter bank list..." 
+            placeholder="Type 'sbi', 'hdfc' etc..." 
             value={bankFilter}
             onChange={(e) => setBankFilter(e.target.value)}
-            className="bg-slate-900 border border-slate-700 text-white rounded-lg py-2 px-4 focus:outline-none focus:border-blue-500 transition-all text-sm w-full md:w-64"
+            className="bg-slate-900 border border-slate-700 text-white rounded-lg py-2.5 px-4 focus:outline-none focus:border-blue-500 transition-all text-sm w-full md:w-64 shadow-lg font-medium tracking-wide"
           />
         </div>
         
@@ -119,7 +133,8 @@ export default function IfscDirectoryHub() {
             })}
           </div>
         ) : (
-          <div className="text-center py-8 text-slate-400 border border-slate-800 rounded-xl bg-slate-900/40">
+          <div className="text-center py-12 text-slate-400 border border-slate-800 rounded-2xl bg-slate-900/40 shadow-inner">
+            <span className="text-3xl mb-2 block opacity-50">🏦</span>
             No banks found matching "{bankFilter}".
           </div>
         )}
