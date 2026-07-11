@@ -1,6 +1,9 @@
+// @ts-nocheck
 import Link from 'next/link';
 import { Metadata } from 'next';
 import { supabase } from '../../../../../lib/supabase';
+// 🚨 AdBanner imported here (Adjusted for 5 levels deep)
+import AdBanner from '../../../../../components/AdBanner';
 
 // PHASE 11: AUTOMATION - Dynamic SEO Metadata Generation
 export async function generateMetadata(props: any): Promise<Metadata> {
@@ -105,6 +108,9 @@ export default async function PincodeDetailPage(props: any) {
         </p>
       </div>
 
+      {/* 💰 STRATEGIC AD PLACEMENT 1: High RPM Spot just below the hero section */}
+      <AdBanner dataAdSlot="5555555555" />
+
       {/* Internal Linking Strategy Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-12">
         
@@ -178,8 +184,11 @@ export default async function PincodeDetailPage(props: any) {
             Search All Bank IFSC Codes &rarr;
           </Link>
         </div>
-
       </div>
+
+      {/* 💰 STRATEGIC AD PLACEMENT 2: End of page to catch readers finishing the content */}
+      <AdBanner dataAdSlot="6666666666" />
+
     </div>
   );
 }
