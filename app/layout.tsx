@@ -5,7 +5,6 @@ import Script from 'next/script';
 import './globals.css';
 import { LanguageProvider } from '@/src/context/LanguageContext'; 
 import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
 import AIChatbot from '@/components/AIChatbot';
 import GoogleTranslate from '@/components/GoogleTranslate';
 
@@ -23,12 +22,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* 
-          💰 STRATEGIC ADSENSE SCRIPT: 
-          This connects your entire website to Google AdSense.
-          NOTE: Replace 'ca-pub-XXXXXXXXXXXXXXXX' with your actual AdSense Publisher ID 
-          when you apply for approval. 
-        */}
+        {/* 💰 STRATEGIC ADSENSE SCRIPT */}
         <Script
           id="google-adsense"
           async
@@ -45,20 +39,25 @@ export default function RootLayout({
 
           <Navbar />
 
-          <main className="flex-grow w-full pb-24">
+          <main className="flex-grow w-full pb-16">
             {children}
           </main>
 
-          <div className="mt-auto border-t border-slate-800/50 bg-[#0f172a]">
-            <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 flex flex-wrap justify-center gap-6 text-sm text-slate-400 font-medium">
-              <Link href="/about" className="hover:text-orange-400 transition-colors">About Us</Link>
-              <Link href="/contact" className="hover:text-orange-400 transition-colors">Contact</Link>
-              <Link href="/privacy-policy" className="hover:text-orange-400 transition-colors">Privacy Policy</Link>
-              <Link href="/disclaimer" className="hover:text-orange-400 transition-colors">Disclaimer</Link>
+          {/* 🚀 UNIFIED FOOTER: Removed the separate black footer and merged copyright text seamlessly */}
+          <footer className="mt-auto border-t border-slate-800/50 bg-[#0f172a] py-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col items-center gap-5">
+              <div className="flex flex-wrap justify-center gap-6 text-sm text-slate-400 font-medium">
+                <Link href="/about" className="hover:text-orange-400 transition-colors">About Us</Link>
+                <Link href="/contact" className="hover:text-orange-400 transition-colors">Contact</Link>
+                <Link href="/privacy-policy" className="hover:text-orange-400 transition-colors">Privacy Policy</Link>
+                <Link href="/disclaimer" className="hover:text-orange-400 transition-colors">Disclaimer</Link>
+              </div>
+              <p className="text-slate-600 text-xs text-center font-medium">
+                &copy; 2026 Pincode Club. All rights reserved. Global Operations.
+              </p>
             </div>
-          </div>
+          </footer>
 
-          <Footer />
           <AIChatbot />
 
         </LanguageProvider>
