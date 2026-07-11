@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+// 🚨 Import Next.js Script for AdSense
+import Script from 'next/script';
 import './globals.css';
 import { LanguageProvider } from '@/src/context/LanguageContext'; 
 import Navbar from '@/components/Navbar';
@@ -20,6 +22,22 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        {/* 
+          💰 STRATEGIC ADSENSE SCRIPT: 
+          This connects your entire website to Google AdSense.
+          NOTE: Replace 'ca-pub-XXXXXXXXXXXXXXXX' with your actual AdSense Publisher ID 
+          when you apply for approval. 
+        */}
+        <Script
+          id="google-adsense"
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
+      </head>
+      
       <body className="min-h-screen bg-[#0f172a] text-slate-200 font-sans flex flex-col" suppressHydrationWarning>
         <LanguageProvider>
           
@@ -27,12 +45,12 @@ export default function RootLayout({
 
           <Navbar />
 
-          {/* ఇక్కడ pb-24 (Padding Bottom) యాడ్ చేశాను, దీనివల్ల కంటెంట్ కి ఫుట్టర్ కి మధ్య మంచి గ్యాప్ వస్తుంది */}
+          {/* Padding bottom ensures content doesn't touch the footer */}
           <main className="flex-grow w-full pb-24">
             {children}
           </main>
 
-          {/* ఇక్కడ mt-auto (Margin Top Auto) యాడ్ చేశాను, దీనివల్ల కంటెంట్ తక్కువ ఉన్నా ఫుట్టర్ కిందకే ఉంటుంది */}
+          {/* Margin-top auto pushes this section to the bottom regardless of content height */}
           <div className="mt-auto border-t border-slate-800/50 bg-[#0f172a]">
             <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 flex flex-wrap justify-center gap-6 text-sm text-slate-400 font-medium">
               <Link href="/about" className="hover:text-orange-400 transition-colors">About Us</Link>
