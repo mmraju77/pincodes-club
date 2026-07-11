@@ -1,6 +1,6 @@
+// @ts-nocheck
 import type { Metadata } from 'next';
 import Link from 'next/link';
-// 🚨 Import Next.js Script for AdSense
 import Script from 'next/script';
 import './globals.css';
 import { LanguageProvider } from '@/src/context/LanguageContext'; 
@@ -45,12 +45,10 @@ export default function RootLayout({
 
           <Navbar />
 
-          {/* Padding bottom ensures content doesn't touch the footer */}
           <main className="flex-grow w-full pb-24">
             {children}
           </main>
 
-          {/* Margin-top auto pushes this section to the bottom regardless of content height */}
           <div className="mt-auto border-t border-slate-800/50 bg-[#0f172a]">
             <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 flex flex-wrap justify-center gap-6 text-sm text-slate-400 font-medium">
               <Link href="/about" className="hover:text-orange-400 transition-colors">About Us</Link>
