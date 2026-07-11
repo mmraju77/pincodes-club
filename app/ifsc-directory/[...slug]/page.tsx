@@ -4,8 +4,9 @@
 import Link from 'next/link';
 import { useEffect, useState, use } from 'react';
 import { supabase } from '../../../lib/supabase';
+// 🚨 AdBanner imported here
+import AdBanner from '../../../components/AdBanner'; 
 
-// 🚨 STRICT MASTER DISTRICT LIST (Your Updated List)
 const ALL_INDIA_DISTRICTS = {
   'andaman-and-nicobar-islands': ["Nicobar", "North and Middle Andaman", "South Andaman"],
   'andhra-pradesh': [
@@ -52,7 +53,6 @@ const ALL_INDIA_DISTRICTS = {
   'uttarakhand': ["Almora", "Bageshwar", "Chamoli", "Champawat", "Dehradun", "Haridwar", "Nainital", "Pauri Garhwal", "Pithoragarh", "Rudraprayag", "Tehri Garhwal", "Udham Singh Nagar", "Uttarkashi"],
   'west-bengal': ["Alipurduar", "Bankura", "Birbhum", "Cooch Behar", "Dakshin Dinajpur", "Darjeeling", "Hooghly", "Howrah", "Jalpaiguri", "Jhargram", "Kalimpong", "Kolkata", "Malda", "Murshidabad", "Nadia", "North 24 Parganas", "Paschim Bardhaman", "Paschim Medinipur", "Purba Bardhaman", "Purba Medinipur", "Purulia", "South 24 Parganas", "Uttar Dinajpur"]
 };
-
 
 const createFuzzyQuery = (slugParam) => {
   if (!slugParam) return '';
@@ -122,19 +122,16 @@ export default function DynamicIfscPage(props) {
         const queryBank = createFuzzyQuery(bankSlug);
         if (queryBank) q = q.ilike('bank', queryBank);
 
-        // 🚨 HARD LOCK 1: STRICT STATE FILTER (To prevent Maharashtra leaking into Andhra)
         if (stateSlug) {
             const decodedState = formatFromSlug(stateSlug);
             q = q.ilike('state', `%${decodedState}%`);
         }
         
-        // 🚨 HARD LOCK 2: STRICT DISTRICT FILTER
         if (districtSlug) {
             const decodedDistrict = formatFromSlug(districtSlug);
             q = q.ilike('district', `%${decodedDistrict}%`);
         }
 
-        // 🚨 HARD LOCK 3: STRICT CITY FILTER
         if (citySlug) {
             const decodedCity = formatFromSlug(citySlug);
             q = q.or(`city.ilike.%${decodedCity}%,centre.ilike.%${decodedCity}%`);
@@ -167,9 +164,7 @@ export default function DynamicIfscPage(props) {
   
   const activeBankTitle = dataList.length > 0 ? formatBankAcronyms((dataList[0].bank || '').toLowerCase()) : formatBankAcronyms(formatFromSlug(bankSlug));
 
-  if (dataList.length > 0) {
-    
-    // LEVEL 1: STATES (Strictly filtered by the bank)
+  if (dataList.length > 0 || (bankSlug && stateSlug && !districtSlug)) {
     if (bankSlug && !stateSlug) {
       const uniqueStates = Array.from(new Set(dataList.map(d => d.state?.trim().toUpperCase()))).filter(Boolean);
       displayCards = uniqueStates.sort().map(s => ({
@@ -179,30 +174,13 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${formatToSlug(s)}`
       }));
     } 
-    
-    // LEVEL 2: DISTRICTS (🚨 RESTORED MASTER LIST FILTER TO PREVENT CITIES SHOWING AS DISTRICTS)
     else if (bankSlug && stateSlug && !districtSlug) {
       let uniqueDistricts = [];
       const decodedState = formatFromSlug(stateSlug);
       const stateKey = Object.keys(ALL_INDIA_DISTRICTS).find(k => k.replace(/-/g, ' ') === decodedState.toLowerCase()) || stateSlug;
 
       if (ALL_INDIA_DISTRICTS[stateKey]) {
-         // Cross-reference official districts with actual database results (using Fuzzy Logic for safety)
-         uniqueDistricts = ALL_INDIA_DISTRICTS[stateKey].filter(officialDist => {
-            const normalizedOfficial = officialDist.toLowerCase().replace(/[^a-z0-9]/g, '');
-            return dataList.some(row => {
-               const rowDist = (row.district || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-               const rowCity = (row.city || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-               const rowCentre = (row.centre || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-               // Verify if the official district exists anywhere in the data (District, City, or Centre)
-               return rowDist.includes(normalizedOfficial) || normalizedOfficial.includes(rowDist) || rowCity.includes(normalizedOfficial) || rowCentre.includes(normalizedOfficial);
-            });
-         });
-         
-         // Fallback ONLY if the strict intersection fails completely
-         if (uniqueDistricts.length === 0) {
-            uniqueDistricts = Array.from(new Set(dataList.map(d => d.district?.trim().toUpperCase()))).filter(Boolean);
-         }
+         uniqueDistricts = ALL_INDIA_DISTRICTS[stateKey];
       } else {
          uniqueDistricts = Array.from(new Set(dataList.map(d => d.district?.trim().toUpperCase()))).filter(Boolean);
       }
@@ -214,8 +192,6 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${formatToSlug(d)}`
       }));
     }
-    
-    // LEVEL 3: CITIES
     else if (bankSlug && stateSlug && districtSlug && !citySlug) {
       const uniqueCities = Array.from(new Set(dataList.map(row => {
          return (row.centre || row.city || '').trim().toUpperCase();
@@ -228,8 +204,6 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}/${formatToSlug(c)}`
       }));
     }
-    
-    // LEVEL 4: BRANCHES
     else if (bankSlug && stateSlug && districtSlug && citySlug && !branchSlug) {
       const uniqueBranches = Array.from(new Set(dataList.map(d => d.branch?.trim().toUpperCase()))).filter(Boolean);
       
@@ -240,8 +214,6 @@ export default function DynamicIfscPage(props) {
         url: `/ifsc-directory/${bankSlug}/${stateSlug}/${districtSlug}/${citySlug}/${formatToSlug(b)}`
       }));
     }
-    
-    // LEVEL 5: DATA VIEW
     else if (bankSlug && stateSlug && districtSlug && citySlug && branchSlug) {
       isFinalBranchView = true;
       branchDataToShow = dataList;
@@ -301,6 +273,9 @@ export default function DynamicIfscPage(props) {
           {branchSlug && "Showing verified live branch records."}
         </p>
       </div>
+
+      {/* 💰 STRATEGIC AD PLACEMENT 1: High Visibility under the title */}
+      <AdBanner dataAdSlot="1234567890" />
 
       {isLoading ? (
         <div className="py-24 text-center">
@@ -368,6 +343,9 @@ export default function DynamicIfscPage(props) {
               )}
             </div>
           )}
+
+          {/* 💰 STRATEGIC AD PLACEMENT 2: End of content */}
+          <AdBanner dataAdSlot="0987654321" />
         </>
       )}
     </div>
