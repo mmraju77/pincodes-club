@@ -22,7 +22,6 @@ export default function Navbar() {
   const changeLanguage = (code: string) => {
     setCurrentLang(code);
     setLangMenuOpen(false);
-    // Google Translate Trigger
     const select = document.querySelector('.goog-te-combo') as HTMLSelectElement;
     if (select) {
       select.value = code;
@@ -35,7 +34,6 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between">
           
-          {/* 1. Bold Logo (PINCODE CLUB) */}
           <Link href="/" className="flex items-center gap-3 group" translate="no">
             <div className="bg-gradient-to-br from-orange-400 to-orange-600 p-2 rounded-xl group-hover:scale-105 transition-transform shadow-lg">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
@@ -45,22 +43,23 @@ export default function Navbar() {
             </span>
           </Link>
 
-          {/* 2. Desktop Menu Links */}
           <div className="hidden md:flex items-center gap-6 lg:gap-8">
             <Link href="/" className="text-sm font-bold text-slate-300 hover:text-white transition-colors">HOME</Link>
             <Link href="/pin-codes" className="text-sm font-bold text-slate-300 hover:text-white transition-colors">PIN CODES</Link>
             <Link href="/ifsc-directory" className="text-sm font-bold text-slate-300 hover:text-white transition-colors">IFSC DIRECTORY</Link>
             <Link href="/guides" className="text-sm font-bold text-blue-400 hover:text-blue-300 transition-colors">GUIDES</Link>
 
-            {/* 🚀 SERVICES Dropdown Menu (Perfectly Linked) */}
             <div className="relative group">
               <button className="flex items-center gap-1 text-sm font-bold text-emerald-400 hover:text-emerald-300 transition-colors py-2">
                 SERVICES
                 <svg className="w-4 h-4 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
               </button>
 
-              {/* Dropdown Panel */}
-              <div className="absolute top-full right-0 mt-2 w-56 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top scale-95 group-hover:scale-100 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+              <div className="absolute top-full right-0 mt-2 w-60 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top scale-95 group-hover:scale-100 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+                {/* 🚀 New Courier Tracking Link Added Here */}
+                <Link href="/courier-tracking" className="block px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-orange-500/20 hover:text-orange-400 border-b border-slate-700/50 transition-colors flex items-center gap-2">
+                  📦 Courier Tracking
+                </Link>
                 <Link href="/services/aadhaar-centers" className="block px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-emerald-500/20 hover:text-emerald-400 border-b border-slate-700/50 transition-colors flex items-center gap-2">
                   🏛️ Aadhaar Centers
                 </Link>
@@ -76,7 +75,6 @@ export default function Navbar() {
               </div>
             </div>
 
-            {/* 3. Language Switcher Button */}
             <div className="relative">
               <button
                 onClick={() => setLangMenuOpen(!langMenuOpen)}
