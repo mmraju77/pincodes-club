@@ -5,36 +5,66 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
-// 🛠️ Smart Data Cleaner Functions
+// 🛠️ 1. Scalable Dictionary for Legacy Data Correction
+const LEGACY_GEOGRAPHY_MAP: Record<string, { outdated: RegExp[], correct: string }> = {
+  'paderu': {
+    outdated: [/Visakhapatnam/ig, /Visakha Dist/ig, /Dist\.?\s*Visakhapatnam/ig, /Paderu District/ig],
+    correct: 'Alluri Sitharama Raju District'
+  }
+  // Future-proof: You can add more cities and their new districts here
+};
+
+// 🛠️ 2. Garbage String Filter (For internal bank codes like HTHB, APGB etc.)
+const removeGarbageStrings = (text: string) => {
+  let cleanText = text;
+  const garbagePatterns = [
+    /Hthb\s*,\s*R\s*,\s*Rhtp\s*,\s*Pp/ig, 
+    /Apgb\s*Paderu/ig,
+    /Pnb\s*Paderu/ig
+  ];
+  
+  garbagePatterns.forEach(pattern => {
+    cleanText = cleanText.replace(pattern, 'Main Branch');
+  });
+  return cleanText;
+};
+
+// 🛠️ 3. Advanced Normalization Engine
 const toTitleCase = (str: string) => {
   if (!str) return '';
   return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 };
 
-const formatCleanAddress = (addr: string, branch: string, city: string, state: string) => {
-  // If address is suspiciously short or missing, use branch name
-  let cleanAddr = (addr && addr.length > 5) ? addr : branch;
+const formatCleanAddress = (rawAddress: string, branchName: string, city: string, state: string) => {
+  let addr = (rawAddress && rawAddress.length > 5) ? rawAddress : branchName;
+  const cityKey = city.trim().toLowerCase();
+
+  // A. Execute Legacy Geography Corrections
+  if (LEGACY_GEOGRAPHY_MAP[cityKey]) {
+    LEGACY_GEOGRAPHY_MAP[cityKey].outdated.forEach(regex => {
+      addr = addr.replace(regex, LEGACY_GEOGRAPHY_MAP[cityKey].correct);
+    });
+  }
+
+  // B. Remove Bank Internal Codes & Messy Formatting
+  addr = removeGarbageStrings(addr);
+  addr = addr.replace(/,+/g, ', ').replace(/\s+/g, ' ').trim();
+  addr = addr.replace(/,\s*$/, ''); 
   
-  // Remove messy commas (e.g., "HTHB,R,RHTP,PP,") and extra spaces
-  cleanAddr = cleanAddr.replace(/,+/g, ', ').replace(/\s+/g, ' ').trim();
-  cleanAddr = cleanAddr.replace(/,\s*$/, ''); // Remove trailing comma
-  
-  // Convert to Title Case for professional look
-  cleanAddr = toTitleCase(cleanAddr);
-  
+  // C. Title Casing for Professional UI
+  addr = toTitleCase(addr);
   const cleanCity = toTitleCase(city);
+  const cleanState = toTitleCase(state);
   
-  // Append City if not present in the address naturally
-  if (!cleanAddr.toLowerCase().includes(city.toLowerCase())) {
-    cleanAddr = `${cleanAddr}, ${cleanCity}`;
+  // D. Ensure City and State are properly appended without duplication
+  if (!addr.toLowerCase().includes(cleanCity.toLowerCase())) {
+    addr = `${addr}, ${cleanCity}`;
+  }
+  if (cleanState && !addr.toLowerCase().includes(cleanState.toLowerCase())) {
+    addr = `${addr}, ${cleanState}`;
   }
   
-  // Append State to make it complete
-  if (state && !cleanAddr.toLowerCase().includes(state.toLowerCase())) {
-    cleanAddr = `${cleanAddr}, ${toTitleCase(state)}`;
-  }
-  
-  return cleanAddr;
+  return addr;
 };
 
 export default function ATMLocatorPage() {
@@ -75,7 +105,7 @@ export default function ATMLocatorPage() {
 
       if (data && data.length > 0) {
         const formattedData = data.map(branch => {
-          // Clean the messy RBI data on the fly
+          // Pass raw data through the Normalization Engine
           const cleanedAddress = formatCleanAddress(branch.address, branch.branch, branch.city, branch.state);
           const cleanedBranchName = toTitleCase(branch.branch);
           
@@ -85,13 +115,12 @@ export default function ATMLocatorPage() {
             address: cleanedAddress,
             branchName: cleanedBranchName,
             status: 'Likely Open 24/7 (Branch Attached)',
-            type: 'Cash & Services',
-            rawAddress: branch.address // keep for maps if needed
+            type: 'Cash & Services'
           };
         });
         setAtmResults(formattedData);
       } else {
-        setSearchError('No banks/ATMs found in this city. Try a different spelling.');
+        setSearchError('No branches or ATMs found in this specific location. Try searching a major nearby city.');
       }
     } catch (err: any) {
       console.error("Error fetching data:", err);
@@ -198,7 +227,6 @@ export default function ATMLocatorPage() {
                     </span>
                   </div>
                   
-                  {/* Clean, professional address rendered here */}
                   <p className="text-slate-400 text-sm mb-4 line-clamp-3 leading-relaxed">{atm.address}</p>
                   
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-t border-slate-700 pt-4 gap-4">
