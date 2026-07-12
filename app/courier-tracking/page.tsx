@@ -8,36 +8,47 @@ export default function CourierTrackingPage() {
   const [trackingId, setTrackingId] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [trackingResult, setTrackingResult] = useState<any>(null);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!trackingId) return;
     
     setIsSearching(true);
     setTrackingResult(null);
+    setErrorMsg('');
 
-    // Smart API Simulation Logic
-    setTimeout(() => {
-      setIsSearching(false);
-      
-      // Auto-detect courier based on tracking ID format
-      const isIndiaPost = trackingId.toUpperCase().endsWith('IN');
-      const courierName = isIndiaPost ? 'India Post (Speed Post)' : 'BlueDart Express';
-
-      // Setting mock live data
-      setTrackingResult({
-        id: trackingId.toUpperCase(),
-        courier: courierName,
-        status: 'In Transit',
-        location: 'Visakhapatnam Sorting Hub',
-        expectedDelivery: 'Tomorrow, by 8:00 PM',
-        steps: [
-          { time: 'Today, 10:30 AM', desc: 'Arrived at Destination Hub', loc: 'Visakhapatnam' },
-          { time: 'Yesterday, 08:15 PM', desc: 'Departed from Origin Facility', loc: 'Hyderabad' },
-          { time: 'Yesterday, 02:00 PM', desc: 'Shipment Picked Up', loc: 'Hyderabad' }
-        ]
+    try {
+      // 🚀 Calling our Secure Backend API
+      const response = await fetch('/api/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trackingId })
       });
-    }, 1800); // 1.8 seconds realistic loading delay
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // If API Key is missing or invalid, show the error on screen
+        setErrorMsg(data.message || data.error || 'Failed to track package.');
+      } else {
+        // Format the real data received from API
+        // Note: This logic will expand based on actual TrackingMore response structure
+        setTrackingResult({
+          id: trackingId.toUpperCase(),
+          courier: data.data?.[0]?.courier_name || 'Unknown Courier',
+          status: 'Tracking Information Received',
+          expectedDelivery: 'Update pending from courier',
+          steps: [
+            { time: new Date().toLocaleString(), desc: 'Request sent to live API server', loc: 'System' }
+          ]
+        });
+      }
+    } catch (err) {
+      setErrorMsg('Connection failed. Please check your internet or API settings.');
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   return (
@@ -82,20 +93,20 @@ export default function CourierTrackingPage() {
               disabled={isSearching}
               className={`px-8 py-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white text-lg font-bold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-70 ${isSearching ? 'animate-pulse' : 'hover:-translate-y-1'}`}
             >
-              {isSearching ? (
-                <>
-                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                  Tracking...
-                </>
-              ) : (
-                'Track Now'
-              )}
+              {isSearching ? 'Tracking...' : 'Track Now'}
             </button>
           </div>
         </form>
       </div>
 
-      {/* 🚀 Dynamic Results Section */}
+      {/* Error Message */}
+      {errorMsg && (
+        <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-4 rounded-xl text-center font-semibold mb-8 animate-fade-in-up">
+          {errorMsg}
+        </div>
+      )}
+
+      {/* Dynamic Results Section */}
       {trackingResult && (
         <div className="bg-slate-800/50 backdrop-blur-md rounded-3xl border border-slate-700 p-6 md:p-10 animate-fade-in-up">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-700 pb-6 mb-6 gap-4">
@@ -112,21 +123,14 @@ export default function CourierTrackingPage() {
             </div>
           </div>
 
-          {/* Timeline Stepper */}
           <div className="space-y-6">
             {trackingResult.steps.map((step: any, index: number) => (
               <div key={index} className="flex gap-4 relative">
-                {/* Vertical Line */}
-                {index !== trackingResult.steps.length - 1 && (
-                  <div className="absolute top-8 left-3.5 w-0.5 h-full bg-slate-700"></div>
-                )}
-                
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center z-10 flex-shrink-0 mt-1 ${index === 0 ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-400'}`}>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center z-10 flex-shrink-0 mt-1 bg-orange-500 text-white`}>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
                 </div>
-                
                 <div>
-                  <h3 className={`text-lg font-bold ${index === 0 ? 'text-white' : 'text-slate-300'}`}>{step.desc}</h3>
+                  <h3 className="text-lg font-bold text-white">{step.desc}</h3>
                   <p className="text-slate-400 text-sm mt-1">{step.time} • <span className="text-slate-500 font-medium">{step.loc}</span></p>
                 </div>
               </div>
