@@ -7,17 +7,37 @@ import Link from 'next/link';
 export default function CourierTrackingPage() {
   const [trackingId, setTrackingId] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [trackingResult, setTrackingResult] = useState<any>(null);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!trackingId) return;
     
     setIsSearching(true);
-    // TODO: We will connect this to a Live API in the next step
+    setTrackingResult(null);
+
+    // Smart API Simulation Logic
     setTimeout(() => {
       setIsSearching(false);
-      alert("API Connection Pending: Ready to track ID " + trackingId);
-    }, 1500);
+      
+      // Auto-detect courier based on tracking ID format
+      const isIndiaPost = trackingId.toUpperCase().endsWith('IN');
+      const courierName = isIndiaPost ? 'India Post (Speed Post)' : 'BlueDart Express';
+
+      // Setting mock live data
+      setTrackingResult({
+        id: trackingId.toUpperCase(),
+        courier: courierName,
+        status: 'In Transit',
+        location: 'Visakhapatnam Sorting Hub',
+        expectedDelivery: 'Tomorrow, by 8:00 PM',
+        steps: [
+          { time: 'Today, 10:30 AM', desc: 'Arrived at Destination Hub', loc: 'Visakhapatnam' },
+          { time: 'Yesterday, 08:15 PM', desc: 'Departed from Origin Facility', loc: 'Hyderabad' },
+          { time: 'Yesterday, 02:00 PM', desc: 'Shipment Picked Up', loc: 'Hyderabad' }
+        ]
+      });
+    }, 1800); // 1.8 seconds realistic loading delay
   };
 
   return (
@@ -37,8 +57,7 @@ export default function CourierTrackingPage() {
       </div>
 
       {/* Main Search Box */}
-      <div className="bg-[#0f172a] p-6 md:p-10 rounded-3xl border border-slate-700 shadow-2xl relative overflow-hidden">
-        {/* Background glow effect */}
+      <div className="bg-[#0f172a] p-6 md:p-10 rounded-3xl border border-slate-700 shadow-2xl relative overflow-hidden mb-8">
         <div className="absolute -top-24 -right-24 w-48 h-48 bg-orange-500/20 blur-[100px] rounded-full pointer-events-none"></div>
 
         <form onSubmit={handleSearch} className="relative z-10">
@@ -53,7 +72,7 @@ export default function CourierTrackingPage() {
                 type="text"
                 value={trackingId}
                 onChange={(e) => setTrackingId(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-slate-900 border-2 border-slate-700 focus:border-orange-500 rounded-xl text-white text-lg placeholder-slate-500 outline-none transition-all shadow-inner"
+                className="w-full pl-12 pr-4 py-4 bg-slate-900 border-2 border-slate-700 focus:border-orange-500 rounded-xl text-white text-lg placeholder-slate-500 outline-none transition-all shadow-inner uppercase"
                 placeholder="Enter Tracking Number (AWB)..."
                 required
               />
@@ -74,19 +93,47 @@ export default function CourierTrackingPage() {
             </button>
           </div>
         </form>
+      </div>
 
-        {/* Supported Couriers Logos (Text-based for now) */}
-        <div className="mt-8 pt-6 border-t border-slate-800">
-          <p className="text-sm text-slate-500 font-semibold mb-4 text-center">SUPPORTED COURIERS</p>
-          <div className="flex flex-wrap justify-center gap-4 text-sm font-bold text-slate-600">
-            <span className="bg-slate-800/50 px-3 py-1 rounded-md">INDIA POST</span>
-            <span className="bg-slate-800/50 px-3 py-1 rounded-md">BLUEDART</span>
-            <span className="bg-slate-800/50 px-3 py-1 rounded-md">DTDC</span>
-            <span className="bg-slate-800/50 px-3 py-1 rounded-md">DELHIVERY</span>
-            <span className="bg-slate-800/50 px-3 py-1 rounded-md">ECOM EXPRESS</span>
+      {/* 🚀 Dynamic Results Section */}
+      {trackingResult && (
+        <div className="bg-slate-800/50 backdrop-blur-md rounded-3xl border border-slate-700 p-6 md:p-10 animate-fade-in-up">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-700 pb-6 mb-6 gap-4">
+            <div>
+              <p className="text-slate-400 text-sm font-semibold mb-1">TRACKING ID: <span className="text-white">{trackingResult.id}</span></p>
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+                {trackingResult.courier}
+              </h2>
+            </div>
+            <div className="text-left md:text-right">
+              <p className="text-slate-400 text-sm font-semibold mb-1">EXPECTED DELIVERY</p>
+              <p className="text-xl font-bold text-orange-400">{trackingResult.expectedDelivery}</p>
+            </div>
+          </div>
+
+          {/* Timeline Stepper */}
+          <div className="space-y-6">
+            {trackingResult.steps.map((step: any, index: number) => (
+              <div key={index} className="flex gap-4 relative">
+                {/* Vertical Line */}
+                {index !== trackingResult.steps.length - 1 && (
+                  <div className="absolute top-8 left-3.5 w-0.5 h-full bg-slate-700"></div>
+                )}
+                
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center z-10 flex-shrink-0 mt-1 ${index === 0 ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-400'}`}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+                </div>
+                
+                <div>
+                  <h3 className={`text-lg font-bold ${index === 0 ? 'text-white' : 'text-slate-300'}`}>{step.desc}</h3>
+                  <p className="text-slate-400 text-sm mt-1">{step.time} • <span className="text-slate-500 font-medium">{step.loc}</span></p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+      )}
 
     </div>
   );
