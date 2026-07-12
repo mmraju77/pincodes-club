@@ -5,6 +5,38 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
+// 🛠️ Smart Data Cleaner Functions
+const toTitleCase = (str: string) => {
+  if (!str) return '';
+  return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+};
+
+const formatCleanAddress = (addr: string, branch: string, city: string, state: string) => {
+  // If address is suspiciously short or missing, use branch name
+  let cleanAddr = (addr && addr.length > 5) ? addr : branch;
+  
+  // Remove messy commas (e.g., "HTHB,R,RHTP,PP,") and extra spaces
+  cleanAddr = cleanAddr.replace(/,+/g, ', ').replace(/\s+/g, ' ').trim();
+  cleanAddr = cleanAddr.replace(/,\s*$/, ''); // Remove trailing comma
+  
+  // Convert to Title Case for professional look
+  cleanAddr = toTitleCase(cleanAddr);
+  
+  const cleanCity = toTitleCase(city);
+  
+  // Append City if not present in the address naturally
+  if (!cleanAddr.toLowerCase().includes(city.toLowerCase())) {
+    cleanAddr = `${cleanAddr}, ${cleanCity}`;
+  }
+  
+  // Append State to make it complete
+  if (state && !cleanAddr.toLowerCase().includes(state.toLowerCase())) {
+    cleanAddr = `${cleanAddr}, ${toTitleCase(state)}`;
+  }
+  
+  return cleanAddr;
+};
+
 export default function ATMLocatorPage() {
   const [city, setCity] = useState('');
   const [selectedBank, setSelectedBank] = useState('');
@@ -12,7 +44,6 @@ export default function ATMLocatorPage() {
   const [atmResults, setAtmResults] = useState<any[]>([]);
   const [searchError, setSearchError] = useState('');
 
-  // List of top banks for the dropdown
   const topBanks = [
     "STATE BANK OF INDIA", "HDFC BANK", "ICICI BANK LIMITED", 
     "AXIS BANK", "PUNJAB NATIONAL BANK", "BANK OF BARODA", 
@@ -28,12 +59,11 @@ export default function ATMLocatorPage() {
     setSearchError('');
 
     try {
-      // 🚀 Fetching REAL DATA from your Supabase ifsc_codes table
       let query = supabase
         .from('ifsc_codes')
         .select('*')
         .ilike('city', `%${city.trim()}%`)
-        .limit(20); // Limiting to 20 to avoid browser lag
+        .limit(20);
 
       if (selectedBank) {
         query = query.eq('bank', selectedBank.toUpperCase());
@@ -44,18 +74,24 @@ export default function ATMLocatorPage() {
       if (error) throw error;
 
       if (data && data.length > 0) {
-        // Transforming branch data into ATM perspective
-        const formattedData = data.map(branch => ({
-          id: branch.id,
-          bank: branch.bank,
-          address: branch.address,
-          branchName: branch.branch,
-          status: 'Likely Open 24/7 (Branch Attached)',
-          type: 'Cash & Services'
-        }));
+        const formattedData = data.map(branch => {
+          // Clean the messy RBI data on the fly
+          const cleanedAddress = formatCleanAddress(branch.address, branch.branch, branch.city, branch.state);
+          const cleanedBranchName = toTitleCase(branch.branch);
+          
+          return {
+            id: branch.id,
+            bank: toTitleCase(branch.bank),
+            address: cleanedAddress,
+            branchName: cleanedBranchName,
+            status: 'Likely Open 24/7 (Branch Attached)',
+            type: 'Cash & Services',
+            rawAddress: branch.address // keep for maps if needed
+          };
+        });
         setAtmResults(formattedData);
       } else {
-        setSearchError('No banks/ATMs found in this city. Try a different spelling or nearby major city.');
+        setSearchError('No banks/ATMs found in this city. Try a different spelling.');
       }
     } catch (err: any) {
       console.error("Error fetching data:", err);
@@ -68,7 +104,6 @@ export default function ATMLocatorPage() {
   return (
     <div className="max-w-6xl mx-auto py-16 px-4 sm:px-6 min-h-screen">
       
-      {/* Header Section */}
       <div className="text-center space-y-4 mb-12">
         <div className="inline-flex items-center justify-center p-4 bg-teal-500/10 rounded-2xl mb-2">
           <span className="text-6xl drop-shadow-md">🏧</span>
@@ -81,14 +116,12 @@ export default function ATMLocatorPage() {
         </p>
       </div>
 
-      {/* Main Search Panel */}
       <div className="bg-[#0f172a] p-6 md:p-10 rounded-3xl border border-slate-700 shadow-2xl relative overflow-hidden mb-12">
         <div className="absolute -top-24 -left-24 w-48 h-48 bg-teal-500/20 blur-[100px] rounded-full pointer-events-none"></div>
 
         <form onSubmit={handleSearch} className="relative z-10">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
-            {/* City Input */}
             <div className="relative">
               <label className="block text-sm font-bold text-slate-400 mb-2">ENTER CITY NAME</label>
               <div className="absolute inset-y-0 top-7 left-0 pl-4 flex items-center pointer-events-none">
@@ -104,7 +137,6 @@ export default function ATMLocatorPage() {
               />
             </div>
 
-            {/* Bank Dropdown */}
             <div className="relative">
               <label className="block text-sm font-bold text-slate-400 mb-2">SELECT BANK (OPTIONAL)</label>
               <select
@@ -122,7 +154,6 @@ export default function ATMLocatorPage() {
               </div>
             </div>
 
-            {/* Search Button */}
             <div className="flex items-end">
               <button
                 type="submit"
@@ -136,26 +167,23 @@ export default function ATMLocatorPage() {
         </form>
       </div>
 
-      {/* Error Message */}
       {searchError && (
         <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-4 rounded-xl text-center font-semibold mb-8 animate-fade-in-up">
           {searchError}
         </div>
       )}
 
-      {/* Dynamic Results Grid (Real Data) */}
       {atmResults.length > 0 && (
         <div className="animate-fade-in-up">
           <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
             <svg className="w-6 h-6 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            Found {atmResults.length} Branches/ATMs in {city.toUpperCase()}
+            Found {atmResults.length} Branches/ATMs in {toTitleCase(city)}
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
             {atmResults.map((atm, index) => (
               <div key={index} className="bg-slate-800/50 backdrop-blur-md border border-slate-700 hover:border-teal-500/50 rounded-2xl p-6 shadow-xl transition-all group flex gap-4 flex-col sm:flex-row">
                 
-                {/* Icon Map Pin */}
                 <div className="w-12 h-12 rounded-full bg-teal-500/10 flex items-center justify-center flex-shrink-0 hidden sm:flex">
                   <span className="text-2xl">📍</span>
                 </div>
@@ -170,6 +198,7 @@ export default function ATMLocatorPage() {
                     </span>
                   </div>
                   
+                  {/* Clean, professional address rendered here */}
                   <p className="text-slate-400 text-sm mb-4 line-clamp-3 leading-relaxed">{atm.address}</p>
                   
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-t border-slate-700 pt-4 gap-4">
@@ -178,9 +207,8 @@ export default function ATMLocatorPage() {
                       {atm.type}
                     </span>
                     
-                    {/* 🚀 Magic Google Maps Link (Now with Real Address) */}
                     <a 
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${atm.bank} ATM, ${atm.address}, ${city}`)}`}
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${atm.bank} ATM, ${atm.branchName}, ${city}`)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-sm font-bold bg-teal-500 hover:bg-teal-400 text-slate-900 px-4 py-2 rounded-lg transition-colors flex items-center gap-2 shadow-lg hover:shadow-teal-500/20"
