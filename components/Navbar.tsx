@@ -56,7 +56,10 @@ export default function Navbar() {
               </button>
 
               <div className="absolute top-full right-0 mt-2 w-60 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top scale-95 group-hover:scale-100 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
-                {/* 🚀 New Courier Tracking Link Added Here */}
+                {/* 🚀 New ATM Locator Link */}
+                <Link href="/atm-locator" className="block px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-teal-500/20 hover:text-teal-400 border-b border-slate-700/50 transition-colors flex items-center gap-2">
+                  🏧 ATM Locator
+                </Link>
                 <Link href="/courier-tracking" className="block px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-orange-500/20 hover:text-orange-400 border-b border-slate-700/50 transition-colors flex items-center gap-2">
                   📦 Courier Tracking
                 </Link>
