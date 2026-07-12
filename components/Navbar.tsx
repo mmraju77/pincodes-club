@@ -52,7 +52,7 @@ export default function Navbar() {
             <Link href="/ifsc-directory" className="text-sm font-bold text-slate-300 hover:text-white transition-colors">IFSC DIRECTORY</Link>
             <Link href="/guides" className="text-sm font-bold text-blue-400 hover:text-blue-300 transition-colors">GUIDES</Link>
 
-            {/* 🚀 New SERVICES Dropdown Menu (CSS Hover Based) */}
+            {/* 🚀 SERVICES Dropdown Menu (Perfectly Linked) */}
             <div className="relative group">
               <button className="flex items-center gap-1 text-sm font-bold text-emerald-400 hover:text-emerald-300 transition-colors py-2">
                 SERVICES
@@ -61,16 +61,16 @@ export default function Navbar() {
 
               {/* Dropdown Panel */}
               <div className="absolute top-full right-0 mt-2 w-56 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top scale-95 group-hover:scale-100 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
-                <Link href="/aadhaar-centers" className="block px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-emerald-500/20 hover:text-emerald-400 border-b border-slate-700/50 transition-colors flex items-center gap-2">
+                <Link href="/services/aadhaar-centers" className="block px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-emerald-500/20 hover:text-emerald-400 border-b border-slate-700/50 transition-colors flex items-center gap-2">
                   🏛️ Aadhaar Centers
                 </Link>
-                <Link href="/pan-offices" className="block px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-emerald-500/20 hover:text-emerald-400 border-b border-slate-700/50 transition-colors flex items-center gap-2">
+                <Link href="/services/pan-offices" className="block px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-emerald-500/20 hover:text-emerald-400 border-b border-slate-700/50 transition-colors flex items-center gap-2">
                   💳 PAN Offices
                 </Link>
-                <Link href="/passport-offices" className="block px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-emerald-500/20 hover:text-emerald-400 border-b border-slate-700/50 transition-colors flex items-center gap-2">
+                <Link href="/services/passport-offices" className="block px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-emerald-500/20 hover:text-emerald-400 border-b border-slate-700/50 transition-colors flex items-center gap-2">
                   ✈️ Passport Offices
                 </Link>
-                <Link href="/government-offices" className="block px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-emerald-500/20 hover:text-emerald-400 transition-colors flex items-center gap-2">
+                <Link href="/services/government-offices" className="block px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-emerald-500/20 hover:text-emerald-400 transition-colors flex items-center gap-2">
                   🏢 Government Offices
                 </Link>
               </div>
