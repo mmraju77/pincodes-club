@@ -10,14 +10,17 @@ export default function AadhaarStatesPage() {
 
   useEffect(() => {
     async function fetchStates() {
-      // Fetch distinct states directly from the database
       const { data, error } = await supabase
         .from('aadhaar_centers')
         .select('state');
 
       if (data) {
-        // Extract unique states, convert to Title Case for nice display, and sort alphabetically
-        const uniqueStates = Array.from(new Set(data.map(item => item.state.trim().toUpperCase()))).sort();
+        // 🛠️ SMART FILTER: Remove empty/null states and keep only valid names
+        const validStates = data
+          .filter(item => item.state && item.state.trim().length > 0)
+          .map(item => item.state.trim().toUpperCase());
+          
+        const uniqueStates = Array.from(new Set(validStates)).sort();
         setStates(uniqueStates);
       }
       setIsLoading(false);
@@ -46,7 +49,6 @@ export default function AadhaarStatesPage() {
           {states.map((state) => (
             <Link 
               key={state} 
-              // We pass the exact database string in the URL
               href={`/services/aadhaar-centers/${encodeURIComponent(state)}`}
               className="bg-slate-800/50 backdrop-blur-md border border-slate-700 hover:border-blue-500/80 hover:bg-slate-800 rounded-2xl p-6 transition-all group flex justify-between items-center shadow-lg hover:shadow-blue-500/10"
             >
