@@ -1,14 +1,29 @@
 // @ts-nocheck
 'use client';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
 export default function AadhaarStatesPage() {
-  // Static list of states for super-fast loading
-  const states = [
-    "ANDHRA PRADESH", "TELANGANA", "KARNATAKA", "TAMIL NADU", 
-    "MAHARASHTRA", "DELHI", "GUJARAT", "WEST BENGAL",
-    "KERALA", "ODISHA", "RAJASTHAN", "UTTAR PRADESH"
-  ];
+  const [states, setStates] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchStates() {
+      // Fetch distinct states directly from the database
+      const { data, error } = await supabase
+        .from('aadhaar_centers')
+        .select('state');
+
+      if (data) {
+        // Extract unique states, convert to Title Case for nice display, and sort alphabetically
+        const uniqueStates = Array.from(new Set(data.map(item => item.state.trim().toUpperCase()))).sort();
+        setStates(uniqueStates);
+      }
+      setIsLoading(false);
+    }
+    fetchStates();
+  }, []);
 
   return (
     <div className="max-w-6xl mx-auto py-16 px-4 sm:px-6 min-h-screen">
@@ -24,18 +39,25 @@ export default function AadhaarStatesPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {states.map((state) => (
-          <Link 
-            key={state} 
-            href={`/services/aadhaar-centers/${encodeURIComponent(state)}`}
-            className="bg-slate-800/50 backdrop-blur-md border border-slate-700 hover:border-blue-500/80 hover:bg-slate-800 rounded-2xl p-6 transition-all group flex justify-between items-center shadow-lg hover:shadow-blue-500/10"
-          >
-            <span className="text-slate-200 font-bold group-hover:text-blue-400 transition-colors">{state}</span>
-            <svg className="w-5 h-5 text-slate-500 group-hover:text-blue-400 transform group-hover:translate-x-1 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
-          </Link>
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="text-center text-blue-400 animate-pulse font-bold text-xl py-12">Loading States from Database...</div>
+      ) : states.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {states.map((state) => (
+            <Link 
+              key={state} 
+              // We pass the exact database string in the URL
+              href={`/services/aadhaar-centers/${encodeURIComponent(state)}`}
+              className="bg-slate-800/50 backdrop-blur-md border border-slate-700 hover:border-blue-500/80 hover:bg-slate-800 rounded-2xl p-6 transition-all group flex justify-between items-center shadow-lg hover:shadow-blue-500/10"
+            >
+              <span className="text-slate-200 font-bold group-hover:text-blue-400 transition-colors">{state}</span>
+              <svg className="w-5 h-5 text-slate-500 group-hover:text-blue-400 transform group-hover:translate-x-1 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center text-slate-400 py-12">No data found. Please check your Supabase connection.</div>
+      )}
     </div>
   );
 }

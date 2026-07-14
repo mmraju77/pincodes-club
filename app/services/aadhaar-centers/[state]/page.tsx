@@ -7,23 +7,27 @@ import { useParams } from 'next/navigation';
 
 export default function StateDistrictsPage() {
   const params = useParams();
-  const stateName = decodeURIComponent(params.state as string).toUpperCase();
+  // Decode the state name exactly as it came from the URL
+  const stateName = decodeURIComponent(params.state as string);
   
   const [districts, setDistricts] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function fetchDistricts() {
-      // Fetch only district column for the selected state to optimize performance
+      // Use case-insensitive search (ilike) but with wildcards to catch spacing issues
       const { data, error } = await supabase
         .from('aadhaar_centers')
         .select('district')
-        .ilike('state', stateName);
+        .ilike('state', `%${stateName.trim()}%`);
 
-      if (data) {
-        // Extract unique districts using JavaScript Set
-        const uniqueDistricts = Array.from(new Set(data.map(item => item.district.toUpperCase()))).sort();
+      if (data && data.length > 0) {
+        // Filter out null or empty districts and get unique names
+        const validData = data.filter(item => item.district);
+        const uniqueDistricts = Array.from(new Set(validData.map(item => item.district.trim().toUpperCase()))).sort();
         setDistricts(uniqueDistricts);
+      } else {
+        console.log("No data found for state:", stateName);
       }
       setIsLoading(false);
     }
@@ -33,15 +37,14 @@ export default function StateDistrictsPage() {
   return (
     <div className="max-w-6xl mx-auto py-12 px-4 sm:px-6 min-h-screen">
       
-      {/* Breadcrumb Navigation */}
       <div className="flex items-center gap-2 text-sm font-semibold text-slate-400 mb-8">
         <Link href="/services/aadhaar-centers" className="hover:text-blue-400 transition-colors">ALL STATES</Link>
         <span>/</span>
-        <span className="text-white">{stateName}</span>
+        <span className="text-white">{stateName.toUpperCase()}</span>
       </div>
 
       <div className="bg-gradient-to-r from-blue-900/40 to-slate-900 border border-slate-700 rounded-3xl p-8 md:p-12 mb-12 shadow-2xl">
-        <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight mb-4">{stateName}</h1>
+        <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight mb-4">{stateName.toUpperCase()}</h1>
         <p className="text-slate-400 text-lg">Select your district to view all active Aadhaar centers.</p>
       </div>
 
