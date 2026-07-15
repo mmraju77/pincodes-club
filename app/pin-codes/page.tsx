@@ -36,30 +36,23 @@ export default function PinCodesHubPage() {
     setHasSearched(true);
 
     try {
-      const isNumber = /^\d+$/.test(searchTerm.trim());
       const queryText = searchTerm.trim();
       
-      let query = supabase.from('pincodes').select('*').limit(50);
-      
-      if (isNumber) {
-        query = query.eq('pincode', queryText);
-      } else {
-        // Updated with EXACT column names from your screenshot: officename, district, statename
-        query = query.or(`officename.ilike.%${queryText}%,district.ilike.%${queryText}%,statename.ilike.%${queryText}%`);
-      }
-
-      const { data, error } = await query;
+      // 🚀 MAGIC: Calling the Super-Fast SQL Function (RPC) instead of slow JS filtering
+      const { data, error } = await supabase.rpc('search_smart_pincodes', {
+        search_query: queryText
+      });
 
       if (error) throw error;
 
       if (data && data.length > 0) {
         setResults(data);
       } else {
-        setErrorMsg(`No results found for "${queryText}". Please check spelling.`);
+        setErrorMsg(`No results found for "${queryText}". Please try a different nearby location.`);
       }
     } catch (err: any) {
       console.error("DB Error:", err);
-      setErrorMsg('Connection error to database. Please try again later.');
+      setErrorMsg('Connection error. Please ensure the Supabase SQL script was executed successfully.');
     } finally {
       setIsSearching(false);
     }
@@ -76,7 +69,7 @@ export default function PinCodesHubPage() {
           All India <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600">Pincode Directory</span>
         </h1>
         <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-          Search by any Village, City, District name, or directly enter a 6-digit Pincode.
+          Smart Search: Find locations even with spelling mistakes. Fast & accurate.
         </p>
       </div>
 
@@ -96,8 +89,8 @@ export default function PinCodesHubPage() {
                   setSearchTerm(e.target.value);
                   if (e.target.value === '') setHasSearched(false);
                 }}
-                className="w-full pl-12 pr-4 py-4 bg-slate-900 border-2 border-slate-700 focus:border-purple-500 rounded-xl text-white font-medium outline-none transition-all shadow-inner uppercase"
-                placeholder="E.g., PAD, PADERU, VISAKHAPATNAM or 531024"
+                className="w-full pl-12 pr-4 py-4 bg-slate-900 border-2 border-slate-700 focus:border-purple-500 rounded-xl text-white font-medium outline-none transition-all shadow-inner"
+                placeholder="E.g., PADERU, paderu, or 531024"
               />
             </div>
             <button
@@ -122,7 +115,11 @@ export default function PinCodesHubPage() {
           <h2 className="text-2xl font-bold text-white mb-6">Found {results.length} Results</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {results.map((item, index) => (
-              <div key={index} className="bg-slate-800/50 backdrop-blur-md border border-slate-700 rounded-2xl p-6 shadow-xl group hover:border-purple-500/50 transition-all">
+              <Link 
+                href={`/pin-codes/${encodeURIComponent(item.statename)}/${encodeURIComponent(item.district)}/${item.pincode}`}
+                key={index} 
+                className="bg-slate-800/50 backdrop-blur-md border border-slate-700 rounded-2xl p-6 shadow-xl group hover:border-purple-500 hover:bg-slate-800 transition-all cursor-pointer block"
+              >
                 <div className="flex justify-between items-start mb-4 border-b border-slate-700/50 pb-4">
                   <div>
                     <h3 className="text-xl font-bold text-white group-hover:text-purple-400 transition-colors">
@@ -130,7 +127,7 @@ export default function PinCodesHubPage() {
                     </h3>
                     <p className="text-slate-400 text-sm mt-1">Status: <span className="text-emerald-400">{item.delivery || 'Available'}</span></p>
                   </div>
-                  <div className="bg-purple-500/10 px-3 py-2 rounded-lg text-center border border-purple-500/30">
+                  <div className="bg-purple-500/10 px-3 py-2 rounded-lg text-center border border-purple-500/30 group-hover:bg-purple-500/20 transition-colors">
                     <span className="block text-[10px] text-purple-300 font-bold uppercase mb-1">PINCODE</span>
                     <span className="text-lg text-white font-black">{item.pincode}</span>
                   </div>
@@ -149,7 +146,11 @@ export default function PinCodesHubPage() {
                     <span className="text-sm text-slate-300">{toTitleCase(item.statename)}</span>
                   </div>
                 </div>
-              </div>
+                <div className="mt-4 pt-4 border-t border-slate-700/50 flex items-center justify-between text-sm text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="font-semibold">View Area Details & Banks</span>
+                  <span>→</span>
+                </div>
+              </Link>
             ))}
           </div>
         </div>
