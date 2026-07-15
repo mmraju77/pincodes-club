@@ -14,15 +14,15 @@ export default function PincodeDistrictsPage() {
 
   useEffect(() => {
     async function fetchDistricts() {
-      // Fetch districts from pincodes table using exactly 'statename' and 'districtname'
+      // Updated column name from districtname to district
       const { data } = await supabase
         .from('pincodes')
-        .select('districtname')
+        .select('district')
         .ilike('statename', `%${stateName.trim()}%`);
 
       if (data && data.length > 0) {
-        const validDistricts = data.filter(item => item.districtname);
-        const uniqueDistricts = Array.from(new Set(validDistricts.map(item => item.districtname.trim().toUpperCase()))).sort();
+        const validDistricts = data.filter(item => item.district);
+        const uniqueDistricts = Array.from(new Set(validDistricts.map(item => item.district.trim().toUpperCase()))).sort();
         setDistricts(uniqueDistricts);
       }
       setIsLoading(false);

@@ -44,9 +44,8 @@ export default function PinCodesHubPage() {
       if (isNumber) {
         query = query.eq('pincode', queryText);
       } else {
-        // 🧠 Smart Partial Match for 2,3,4 letters on multiple columns
-        // NOTE: Make sure your Supabase columns are exactly officename, districtname, statename
-        query = query.or(`officename.ilike.%${queryText}%,districtname.ilike.%${queryText}%,statename.ilike.%${queryText}%`);
+        // Updated with EXACT column names from your screenshot: officename, district, statename
+        query = query.or(`officename.ilike.%${queryText}%,district.ilike.%${queryText}%,statename.ilike.%${queryText}%`);
       }
 
       const { data, error } = await query;
@@ -60,7 +59,7 @@ export default function PinCodesHubPage() {
       }
     } catch (err: any) {
       console.error("DB Error:", err);
-      setErrorMsg('Connection error. Please check if Supabase column names are exactly officename, districtname, statename.');
+      setErrorMsg('Connection error to database. Please try again later.');
     } finally {
       setIsSearching(false);
     }
@@ -129,7 +128,7 @@ export default function PinCodesHubPage() {
                     <h3 className="text-xl font-bold text-white group-hover:text-purple-400 transition-colors">
                       {toTitleCase(item.officename)}
                     </h3>
-                    <p className="text-slate-400 text-sm mt-1">Status: <span className="text-emerald-400">{item.deliverystatus || 'Available'}</span></p>
+                    <p className="text-slate-400 text-sm mt-1">Status: <span className="text-emerald-400">{item.delivery || 'Available'}</span></p>
                   </div>
                   <div className="bg-purple-500/10 px-3 py-2 rounded-lg text-center border border-purple-500/30">
                     <span className="block text-[10px] text-purple-300 font-bold uppercase mb-1">PINCODE</span>
@@ -143,7 +142,7 @@ export default function PinCodesHubPage() {
                   </div>
                   <div>
                     <span className="block text-xs text-slate-500 uppercase">District</span>
-                    <span className="text-sm text-slate-300">{toTitleCase(item.districtname)}</span>
+                    <span className="text-sm text-slate-300">{toTitleCase(item.district)}</span>
                   </div>
                   <div className="col-span-2">
                     <span className="block text-xs text-slate-500 uppercase">State</span>

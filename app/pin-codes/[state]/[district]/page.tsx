@@ -20,11 +20,12 @@ export default function DistrictOfficesPage() {
 
   useEffect(() => {
     async function fetchOffices() {
+      // Updated column name from districtname to district
       const { data } = await supabase
         .from('pincodes')
         .select('*')
         .ilike('statename', `%${stateName}%`)
-        .ilike('districtname', `%${districtName}%`);
+        .ilike('district', `%${districtName}%`);
 
       if (data) setOffices(data);
       setIsLoading(false);
@@ -58,7 +59,7 @@ export default function DistrictOfficesPage() {
                  <h3 className="text-xl font-bold text-white group-hover:text-purple-400 transition-colors">
                    {toTitleCase(item.officename)}
                  </h3>
-                 <p className="text-slate-400 text-sm mt-1">Status: <span className="text-emerald-400">{item.deliverystatus || 'Available'}</span></p>
+                 <p className="text-slate-400 text-sm mt-1">Status: <span className="text-emerald-400">{item.delivery || 'Available'}</span></p>
                </div>
                <div className="bg-purple-500/10 px-3 py-2 rounded-lg text-center border border-purple-500/30">
                  <span className="block text-[10px] text-purple-300 font-bold uppercase mb-1">PINCODE</span>
