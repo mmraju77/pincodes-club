@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
-// Utility for strict capitalization format
 const toTitleCase = (str: string) => {
   if (!str) return '';
   return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
@@ -30,9 +29,9 @@ export default function PinCodesHubPage() {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Security Edge Case: Strip special characters to prevent broken RPC queries
-    const sanitizedQuery = searchTerm.replace(/[^a-zA-Z0-9\s]/g, '').trim();
-    if (!sanitizedQuery) return;
+    // Clean the search text
+    const queryText = searchTerm.replace(/[^a-zA-Z0-9\s]/g, '').trim();
+    if (!queryText) return;
     
     setIsSearching(true);
     setResults([]);
@@ -40,20 +39,29 @@ export default function PinCodesHubPage() {
     setHasSearched(true);
 
     try {
-      const { data, error } = await supabase.rpc('search_smart_pincodes', {
-        search_query: sanitizedQuery
-      });
+      const isNumber = /^\d+$/.test(queryText);
+      
+      // 🚀 Using standard API but powered by backend GIN Indexes for crazy speed!
+      let query = supabase.from('pincodes').select('*').limit(50);
+      
+      if (isNumber) {
+        query = query.eq('pincode', queryText);
+      } else {
+        query = query.or(`officename.ilike.%${queryText}%,district.ilike.%${queryText}%,statename.ilike.%${queryText}%`);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
       if (data && data.length > 0) {
         setResults(data);
       } else {
-        setErrorMsg(`No results found for "${sanitizedQuery}". Please try a nearby location.`);
+        setErrorMsg(`No results found for "${queryText}". Please check spelling and try again.`);
       }
     } catch (err: any) {
-      console.error("RPC Execution Error:", err);
-      setErrorMsg('Database connection error. Please ensure the Supabase SQL indices are built.');
+      console.error("Direct Query Error:", err);
+      setErrorMsg('Network error. Please try searching again.');
     } finally {
       setIsSearching(false);
     }
@@ -71,7 +79,7 @@ export default function PinCodesHubPage() {
           All India <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600">Pincode Directory</span>
         </h1>
         <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-          Lightning Fast Search: Type any village, district, or Pincode. (Auto-corrects minor spelling mistakes).
+          Lightning Fast Search: Type any village, district, or Pincode to instantly find postal details.
         </p>
       </div>
 
@@ -93,7 +101,7 @@ export default function PinCodesHubPage() {
                   if (e.target.value.trim() === '') setHasSearched(false);
                 }}
                 className="w-full pl-12 pr-4 py-4 bg-slate-900 border-2 border-slate-700 focus:border-purple-500 rounded-xl text-white font-medium outline-none transition-all shadow-inner placeholder-slate-500"
-                placeholder="E.g., visakhaptnam, paderu, or 531024"
+                placeholder="E.g., visakhapatnam, paderu, or 531024"
                 autoComplete="off"
                 spellCheck="false"
               />
