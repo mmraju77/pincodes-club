@@ -4,6 +4,10 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
+// 🚀 IMPORTS: Ad & Sponsor components connected here
+import AdBanner from '@/components/AdBanner';
+import SponsorCard from '@/components/SponsorCard';
+
 const toTitleCase = (str: string) => {
   if (!str) return '';
   return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
@@ -60,10 +64,13 @@ export default function PinCodesHubPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto py-16 px-4 sm:px-6 min-h-screen">
+    <div className="max-w-6xl mx-auto py-8 md:py-16 px-4 sm:px-6 min-h-screen">
       
+      {/* 🚀 TOP AD PLACEMENT: Best for High CTR */}
+      <AdBanner placeholder="Sponsor Advertisement" />
+
       {/* Header Section */}
-      <div className="text-center space-y-4 mb-12">
+      <div className="text-center space-y-4 mb-12 mt-8">
         <div className="inline-flex items-center justify-center p-4 bg-purple-500/10 rounded-2xl mb-2">
           <span className="text-6xl drop-shadow-md">📮</span>
         </div>
@@ -126,46 +133,63 @@ export default function PinCodesHubPage() {
       {/* Dynamic Results Grid */}
       {hasSearched && results.length > 0 && (
         <div className="animate-fade-in-up">
-          <h2 className="text-2xl font-bold text-white mb-6">Found {results.length} Results</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {results.map((item, index) => (
-              <Link 
-                href={`/pin-codes/${encodeURIComponent(item.statename)}/${encodeURIComponent(item.district)}/${item.pincode}`}
-                key={index} 
-                className="bg-slate-800/50 backdrop-blur-md border border-slate-700 rounded-2xl p-6 shadow-xl group hover:border-purple-500 hover:bg-slate-800 transition-all cursor-pointer block"
-              >
-                <div className="flex justify-between items-start mb-4 border-b border-slate-700/50 pb-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-white group-hover:text-purple-400 transition-colors">
-                      {toTitleCase(item.officename)}
-                    </h3>
-                    <p className="text-slate-400 text-sm mt-1">Status: <span className="text-emerald-400">{item.delivery || 'Available'}</span></p>
+          <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+            <svg className="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            Found {results.length} Results
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+            {/* 🚀 SPONSOR CARD: Blended beautifully into the results grid for max clicks */}
+            <div className="lg:col-span-1">
+              <SponsorCard 
+                title="Lifetime Free Credit Card" 
+                description="Apply today to get exclusive rewards, 5% cashback on all spends, and zero annual fees." 
+                link="https://www.google.com" 
+                buttonText="Apply Now" 
+              />
+            </div>
+
+            {/* Actual Pincode Results */}
+            <div className="md:col-span-1 lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+              {results.map((item, index) => (
+                <Link 
+                  href={`/pin-codes/${encodeURIComponent(item.statename)}/${encodeURIComponent(item.district)}/${item.pincode}`}
+                  key={index} 
+                  className="bg-slate-800/50 backdrop-blur-md border border-slate-700 rounded-2xl p-6 shadow-xl group hover:border-purple-500 hover:bg-slate-800 transition-all cursor-pointer block"
+                >
+                  <div className="flex justify-between items-start mb-4 border-b border-slate-700/50 pb-4">
+                    <div>
+                      <h3 className="text-xl font-bold text-white group-hover:text-purple-400 transition-colors">
+                        {toTitleCase(item.officename)}
+                      </h3>
+                      <p className="text-slate-400 text-sm mt-1">Status: <span className="text-emerald-400">{item.delivery || 'Available'}</span></p>
+                    </div>
+                    <div className="bg-purple-500/10 px-3 py-2 rounded-lg text-center border border-purple-500/30 group-hover:bg-purple-500/20 transition-colors">
+                      <span className="block text-[10px] text-purple-300 font-bold uppercase mb-1">PINCODE</span>
+                      <span className="text-lg text-white font-black">{item.pincode}</span>
+                    </div>
                   </div>
-                  <div className="bg-purple-500/10 px-3 py-2 rounded-lg text-center border border-purple-500/30 group-hover:bg-purple-500/20 transition-colors">
-                    <span className="block text-[10px] text-purple-300 font-bold uppercase mb-1">PINCODE</span>
-                    <span className="text-lg text-white font-black">{item.pincode}</span>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="block text-xs text-slate-500 uppercase">Region / Taluk</span>
+                      <span className="text-sm text-slate-300">{toTitleCase(item.regionname || item.taluk || 'N/A')}</span>
+                    </div>
+                    <div>
+                      <span className="block text-xs text-slate-500 uppercase">District</span>
+                      <span className="text-sm text-slate-300">{toTitleCase(item.district)}</span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="block text-xs text-slate-500 uppercase">State</span>
+                      <span className="text-sm text-slate-300">{toTitleCase(item.statename)}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <span className="block text-xs text-slate-500 uppercase">Region / Taluk</span>
-                    <span className="text-sm text-slate-300">{toTitleCase(item.regionname || item.taluk || 'N/A')}</span>
+                  <div className="mt-4 pt-4 border-t border-slate-700/50 flex items-center justify-between text-sm text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="font-semibold">View Area Details & Banks</span>
+                    <span>→</span>
                   </div>
-                  <div>
-                    <span className="block text-xs text-slate-500 uppercase">District</span>
-                    <span className="text-sm text-slate-300">{toTitleCase(item.district)}</span>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="block text-xs text-slate-500 uppercase">State</span>
-                    <span className="text-sm text-slate-300">{toTitleCase(item.statename)}</span>
-                  </div>
-                </div>
-                <div className="mt-4 pt-4 border-t border-slate-700/50 flex items-center justify-between text-sm text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="font-semibold">View Area Details & Banks</span>
-                  <span>→</span>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -179,7 +203,7 @@ export default function PinCodesHubPage() {
             <div className="h-px bg-slate-700 flex-grow"></div>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-12">
             {INDIAN_STATES.map((stateName) => (
               <Link 
                 key={stateName} 
@@ -191,6 +215,9 @@ export default function PinCodesHubPage() {
               </Link>
             ))}
           </div>
+
+          {/* 🚀 BOTTOM AD PLACEMENT: Catch users before they bounce */}
+          <AdBanner placeholder="Google AdSense Display Ad" />
         </div>
       )}
     </div>
