@@ -29,7 +29,6 @@ export default function PinCodesHubPage() {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Clean the search text
     const queryText = searchTerm.replace(/[^a-zA-Z0-9\s]/g, '').trim();
     if (!queryText) return;
     
@@ -39,29 +38,22 @@ export default function PinCodesHubPage() {
     setHasSearched(true);
 
     try {
-      const isNumber = /^\d+$/.test(queryText);
-      
-      // 🚀 Using standard API but powered by backend GIN Indexes for crazy speed!
-      let query = supabase.from('pincodes').select('*').limit(50);
-      
-      if (isNumber) {
-        query = query.eq('pincode', queryText);
-      } else {
-        query = query.or(`officename.ilike.%${queryText}%,district.ilike.%${queryText}%,statename.ilike.%${queryText}%`);
-      }
-
-      const { data, error } = await query;
+      // 🚀 Calling the new Advanced RPC Search Engine
+      const { data, error } = await supabase.rpc('advanced_pincode_search', {
+        search_query: queryText
+      });
 
       if (error) throw error;
 
       if (data && data.length > 0) {
         setResults(data);
       } else {
-        setErrorMsg(`No results found for "${queryText}". Please check spelling and try again.`);
+        setErrorMsg(`No results found for "${queryText}". Please try adjusting the spelling slightly.`);
       }
     } catch (err: any) {
-      console.error("Direct Query Error:", err);
-      setErrorMsg('Network error. Please try searching again.');
+      console.error("Advanced Search Error:", err);
+      // Fallback message
+      setErrorMsg('Database connection error. Please ensure the new SQL script was executed in Supabase.');
     } finally {
       setIsSearching(false);
     }
@@ -70,7 +62,7 @@ export default function PinCodesHubPage() {
   return (
     <div className="max-w-6xl mx-auto py-16 px-4 sm:px-6 min-h-screen">
       
-      {/* Header */}
+      {/* Header Section */}
       <div className="text-center space-y-4 mb-12">
         <div className="inline-flex items-center justify-center p-4 bg-purple-500/10 rounded-2xl mb-2">
           <span className="text-6xl drop-shadow-md">📮</span>
@@ -79,16 +71,17 @@ export default function PinCodesHubPage() {
           All India <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600">Pincode Directory</span>
         </h1>
         <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-          Lightning Fast Search: Type any village, district, or Pincode to instantly find postal details.
+          Smart Search: Type a full name, partial name, or even with minor spelling mistakes. We'll find it!
         </p>
       </div>
 
-      {/* Search Module */}
+      {/* Main Search Panel */}
       <div className="bg-[#0f172a] p-6 md:p-10 rounded-3xl border border-slate-700 shadow-2xl relative overflow-hidden mb-16">
         <div className="absolute -top-24 -left-24 w-48 h-48 bg-purple-500/20 blur-[100px] rounded-full pointer-events-none"></div>
 
         <form onSubmit={handleSearch} className="relative z-10 max-w-3xl mx-auto">
           <div className="flex flex-col md:flex-row gap-4">
+            
             <div className="relative flex-grow">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <svg className="h-5 w-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -101,11 +94,12 @@ export default function PinCodesHubPage() {
                   if (e.target.value.trim() === '') setHasSearched(false);
                 }}
                 className="w-full pl-12 pr-4 py-4 bg-slate-900 border-2 border-slate-700 focus:border-purple-500 rounded-xl text-white font-medium outline-none transition-all shadow-inner placeholder-slate-500"
-                placeholder="E.g., visakhapatnam, paderu, or 531024"
+                placeholder="E.g., visak, araku velley, or munchingi puttu"
                 autoComplete="off"
                 spellCheck="false"
               />
             </div>
+
             <button
               type="submit"
               disabled={isSearching || !searchTerm.trim()}
@@ -122,14 +116,14 @@ export default function PinCodesHubPage() {
         </form>
       </div>
 
-      {/* Error Handling UI */}
+      {/* Error Output */}
       {errorMsg && (
         <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-4 rounded-xl text-center font-semibold mb-8 animate-fade-in-up">
           {errorMsg}
         </div>
       )}
 
-      {/* Search Results Grid */}
+      {/* Dynamic Results Grid */}
       {hasSearched && results.length > 0 && (
         <div className="animate-fade-in-up">
           <h2 className="text-2xl font-bold text-white mb-6">Found {results.length} Results</h2>
@@ -176,7 +170,7 @@ export default function PinCodesHubPage() {
         </div>
       )}
 
-      {/* Directory Fallback */}
+      {/* States Directory Fallback */}
       {!hasSearched && (
         <div className="animate-fade-in-up mt-8">
           <div className="flex items-center gap-4 mb-8">
