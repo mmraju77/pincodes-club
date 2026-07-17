@@ -22,6 +22,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* 🚀 Google Search Console Verification */}
+        <meta name="google-site-verification" content="JwQ3VyOZUSB3OqbynuAo8kIpDUAESN5fHW8hnU0MuoU" />
+
         {/* 💰 STRATEGIC ADSENSE SCRIPT */}
         <Script
           id="google-adsense"
