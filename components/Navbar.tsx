@@ -69,12 +69,16 @@ export default function Navbar() {
                 <Link href="/services/pan-offices" className="block px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-emerald-500/20 hover:text-emerald-400 border-b border-slate-700/50 transition-colors flex items-center gap-2">
                   💳 PAN Offices
                 </Link>
+                
+                {/* 🚀 HIDDEN LINKS (Passport & Govt Offices) - Data లేనందున గూగుల్ కి కనబడకుండా దాచాం */}
+                {/* 
                 <Link href="/services/passport-offices" className="block px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-emerald-500/20 hover:text-emerald-400 border-b border-slate-700/50 transition-colors flex items-center gap-2">
                   ✈️ Passport Offices
                 </Link>
                 <Link href="/services/government-offices" className="block px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-emerald-500/20 hover:text-emerald-400 transition-colors flex items-center gap-2">
                   🏢 Government Offices
                 </Link>
+                */}
               </div>
             </div>
 
